@@ -18,4 +18,4 @@ Reach milestone `v0.1.0-alpha.1` — a usable, crypto-only private alpha built p
 
 ## Verification
 
-`pnpm verify` passes locally on the bootstrap branch: Biome clean, typecheck clean, both packages build, 6 tests pass, and the packed CLI answers `--help` from a temporary directory. Remaining: confirm the same from a fresh clone, then publish with human approval.
+`pnpm verify` passes both on the bootstrap branch and from a fresh clone (`pnpm install --frozen-lockfile` then `pnpm verify`: Biome clean, typecheck clean, both packages build, 6 tests pass, packed CLI answers `--help` from a temporary directory). All bootstrap exit criteria are met except GitHub publication, which awaits human approval.
