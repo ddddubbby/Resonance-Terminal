@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "scanId": "smoke-0001",
+  "connectors": ["binance", "coinbase", "defillama", "rss", "github"]
+}

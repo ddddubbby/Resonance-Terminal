@@ -1,0 +1,20 @@
+{
+  "name": "@resonance/terminal",
+  "version": "0.0.0",
+  "description": "Command line interface for Resonance Terminal.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "resonance": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ../../scripts/make-bin-executable.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json"
+  }
+}
