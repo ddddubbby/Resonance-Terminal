@@ -39,6 +39,10 @@ const RSS_FEEDS = [
   { id: "cointelegraph", url: "https://cointelegraph.com/rss" },
   { id: "theblock", url: "https://www.theblock.co/rss.xml" },
   { id: "decrypt", url: "https://decrypt.co/feed" },
+  // Alternative, less-consensus feeds added during recalibration.
+  { id: "thedefiant", url: "https://thedefiant.io/api/feeds/rss" },
+  { id: "blockworks", url: "https://www.blockworks.co/feed" },
+  { id: "dlnews", url: "https://www.dlnews.com/arc/outboundfeeds/rss/" },
 ];
 
 // Curated public repositories relevant to major ecosystems. Unauthenticated
@@ -54,6 +58,7 @@ const GITHUB_REPOS = [
   "polkadot/polkadot",
   "bitcoin/bitcoin",
   "base/node",
+  "hyperliquid-dex/hyperliquid-python-sdk",
 ];
 
 const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -149,6 +154,27 @@ for (const repo of GITHUB_REPOS) {
     },
   );
 }
+
+// 6. Binance full-market tape — the whole spot universe, screened downstream
+// for off-radar movers (recalibration: the 12 majors are vanilla by design).
+await capture("binance-full-tape", "https://api.binance.com/api/v3/ticker/24hr");
+
+// 7. Hyperliquid public info API — perps and spot context (funding, open
+// interest, volume) with no API key (recalibration).
+await capture("hyperliquid-perps", "https://api.hyperliquid.xyz/info", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ type: "metaAndAssetCtxs" }),
+});
+await capture("hyperliquid-spot", "https://api.hyperliquid.xyz/info", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ type: "spotMetaAndAssetCtxs" }),
+});
+
+// 8. DefiLlama stablecoin supply (recalibration). Note: /raises is now
+// paywalled (HTTP 402), so funding-round data is not captured in this spike.
+await capture("defillama-stablecoins", "https://stablecoins.llama.fi/stablecoins");
 
 writeFileSync(
   join(outDir, "meta.json"),

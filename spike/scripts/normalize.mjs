@@ -3,6 +3,9 @@
 // Reads the latest spike/data/raw/<runId>/ capture, converts every source
 // into NormalizedDocuments, deduplicates by content hash and URL, and writes
 // one timestamped snapshot: spike/data/snapshots/<runId>/{docs.ndjson,snapshot.json}.
+// Recalibration additions: off-radar movers from the full Binance tape,
+// Hyperliquid perps/spot context, stablecoin supply, and a category lens
+// (RWA / Liquid Staking / Derivatives) on the DefiLlama protocols payload.
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -169,8 +172,196 @@ try {
       extra: { tvl: p.tvl, change1d: p.change_1d, change7d: p.change_7d, category: p.category },
     });
   }
+  // Category lens (recalibration): full coverage of RWA, Liquid Staking, and
+  // Derivatives above a small TVL floor — not just whatever makes the top 60.
+  // pushDoc dedupes anything already emitted by the top-TVL pass above.
+  const ALPHA_CATEGORIES = ["RWA", "Liquid Staking", "Derivatives"];
+  const categoryProtocols = protocols
+    .filter((p) => ALPHA_CATEGORIES.includes(p.category) && p.tvl >= 2e7)
+    .sort((a, b) => b.tvl - a.tvl);
+  for (const p of categoryProtocols) {
+    pushDoc({
+      sourceId: "defillama",
+      kind: "tvl-protocol",
+      assets: p.symbol ? [p.symbol] : [],
+      title: `TVL ${p.name} $${(p.tvl / 1e9).toFixed(2)}B (${p.category})`,
+      text: [
+        `${p.name} ${p.symbol ?? ""} protocol tvl total value locked ${(p.tvl / 1e9).toFixed(3)} billion usd defillama`,
+        `category ${p.category}`,
+        `change 1d ${(p.change_1d ?? 0).toFixed(2)} percent 7d ${(p.change_7d ?? 0).toFixed(2)} percent`,
+        `chains ${(p.chains ?? []).slice(0, 6).join(", ")}`,
+        stripHtml(p.description ?? "").slice(0, 220),
+      ].join(" | "),
+      url: p.url || `https://defillama.com/protocol/${p.slug}`,
+      publishedAt: capturedAt,
+      extra: { tvl: p.tvl, change1d: p.change_1d, change7d: p.change_7d, category: p.category },
+    });
+  }
 } catch (e) {
   failures.push({ source: "defillama-protocols", error: String(e) });
+}
+
+// --- Off-radar movers from the full Binance tape (recalibration) -----------
+try {
+  const tape = JSON.parse(readBody("binance-full-tape.body"));
+  const eligible = tape.filter(
+    (t) =>
+      t.symbol.endsWith("USDT") &&
+      !/^(USDC|FDUSD|TUSD|DAI|USDP|EUR|EURI|AEUR|XUSD|USD1|BFUSD)/.test(t.symbol) &&
+      !/(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol) &&
+      Number(t.quoteVolume) >= 5e6,
+  );
+  const byChange = [...eligible].sort(
+    (a, b) => Number(b.priceChangePercent) - Number(a.priceChangePercent),
+  );
+  const tracked = new Set([
+    "BTC",
+    "ETH",
+    "SOL",
+    "BNB",
+    "XRP",
+    "DOGE",
+    "ADA",
+    "AVAX",
+    "LINK",
+    "DOT",
+    "TON",
+    "TRX",
+  ]);
+  const byVolume = [...eligible]
+    .filter((t) => !tracked.has(t.symbol.replace(/USDT$/, "")))
+    .sort((a, b) => Number(b.quoteVolume) - Number(a.quoteVolume));
+  const screened = [
+    ...byChange.slice(0, 12).map((t) => [t, "top gainer"]),
+    ...byChange.slice(-8).map((t) => [t, "top loser"]),
+    ...byVolume.slice(0, 10).map((t) => [t, "volume leader off the tracked tape"]),
+  ];
+  for (const [t, signal] of screened) {
+    const base = t.symbol.replace(/USDT$/, "");
+    pushDoc({
+      sourceId: "binance-movers",
+      kind: "mover",
+      assets: [base],
+      title: `Mover ${base}/USDT ${Number(t.priceChangePercent) >= 0 ? "+" : ""}${t.priceChangePercent}% (${signal})`,
+      text: [
+        `${base} binance spot mover off radar ${signal.replace(/ /g, "-")}`,
+        `price ${t.lastPrice} usdt change ${t.priceChangePercent} percent`,
+        `quote volume ${t.quoteVolume} usdt trades ${t.count}`,
+      ].join(" | "),
+      url: `https://www.binance.com/en/trade/${base}_USDT`,
+      publishedAt: capturedAt,
+      extra: {
+        lastPrice: Number(t.lastPrice),
+        priceChangePercent: Number(t.priceChangePercent),
+        quoteVolume: Number(t.quoteVolume),
+        signal,
+      },
+    });
+  }
+} catch (e) {
+  failures.push({ source: "binance-movers", error: String(e) });
+}
+
+// --- Hyperliquid perps and spot context (recalibration) ---------------------
+try {
+  const [meta, ctxs] = JSON.parse(readBody("hyperliquid-perps.body"));
+  const rows = meta.universe.map((u, i) => {
+    const c = ctxs[i];
+    const oi = Number(c.openInterest) * Number(c.oraclePx);
+    return {
+      name: u.name,
+      funding: Number(c.funding),
+      oi,
+      volume: Number(c.dayNtlVlm),
+      mark: Number(c.markPx),
+      change: ((Number(c.markPx) - Number(c.prevDayPx)) / Number(c.prevDayPx)) * 100,
+    };
+  });
+  const keep = new Map();
+  for (const r of [...rows].sort((a, b) => b.volume - a.volume).slice(0, 8)) keep.set(r.name, r);
+  for (const r of [...rows].sort((a, b) => b.oi - a.oi).slice(0, 6)) keep.set(r.name, r);
+  const byFunding = [...rows].sort((a, b) => Math.abs(b.funding) - Math.abs(a.funding));
+  for (const r of byFunding.slice(0, 3)) keep.set(r.name, r);
+  for (const r of byFunding.slice(-3)) keep.set(r.name, r);
+  for (const r of keep.values()) {
+    pushDoc({
+      sourceId: "hyperliquid",
+      kind: "hyperliquid",
+      assets: [r.name],
+      title: `Hyperliquid ${r.name}-PERP vol $${(r.volume / 1e9).toFixed(2)}B OI $${(r.oi / 1e6).toFixed(0)}M funding ${(r.funding * 100).toFixed(4)}%`,
+      text: [
+        `${r.name} hyperliquid perp derivatives funding open interest volume`,
+        `day volume ${(r.volume / 1e9).toFixed(3)} billion usd`,
+        `open interest ${(r.oi / 1e6).toFixed(1)} million usd notional`,
+        `hourly funding ${(r.funding * 100).toFixed(4)} percent mark ${r.mark}`,
+        `day change ${r.change.toFixed(2)} percent`,
+      ].join(" | "),
+      // Per-asset URL so pushDoc's URL dedupe keeps every perp doc.
+      url: `https://app.hyperliquid.xyz/trade/${r.name}`,
+      publishedAt: capturedAt,
+      extra: {
+        volume: r.volume,
+        openInterest: r.oi,
+        funding: r.funding,
+        changePercent: Number(r.change.toFixed(2)),
+      },
+    });
+  }
+} catch (e) {
+  failures.push({ source: "hyperliquid-perps", error: String(e) });
+}
+
+try {
+  const [meta, ctxs] = JSON.parse(readBody("hyperliquid-spot.body"));
+  // Spot pairs can be named by token index ("@107"), and the ctxs array is
+  // keyed by its own "coin" field, not by universe order. Resolve the HYPE
+  // token, find the pair whose base token is HYPE, then match ctx by coin.
+  const hypeToken = (meta.tokens ?? []).findIndex((t) => t?.name === "HYPE");
+  const pair = hypeToken >= 0 ? meta.universe.find((u) => (u.tokens ?? [])[0] === hypeToken) : null;
+  const c = pair ? ctxs.find((x) => x.coin === pair.name) : null;
+  if (c) {
+    pushDoc({
+      sourceId: "hyperliquid",
+      kind: "hyperliquid-spot",
+      assets: ["HYPE"],
+      title: `Hyperliquid spot HYPE/USDC mark ${c.markPx}`,
+      text: [
+        `hype hyperliquid spot native token dex`,
+        `mark ${c.markPx} day volume ${(Number(c.dayNtlVlm) / 1e6).toFixed(1)} million usd`,
+      ].join(" | "),
+      url: "https://app.hyperliquid.xyz/spot",
+      publishedAt: capturedAt,
+      extra: { mark: Number(c.markPx), volume: Number(c.dayNtlVlm) },
+    });
+  }
+} catch (e) {
+  failures.push({ source: "hyperliquid-spot", error: String(e) });
+}
+
+// --- Stablecoin supply (recalibration) ---------------------------------------
+try {
+  const { peggedAssets } = JSON.parse(readBody("defillama-stablecoins.body"));
+  const stables = [...peggedAssets]
+    .sort((a, b) => (b.circulating?.peggedUSD ?? 0) - (a.circulating?.peggedUSD ?? 0))
+    .slice(0, 20);
+  for (const s of stables) {
+    const supply = s.circulating?.peggedUSD ?? 0;
+    pushDoc({
+      sourceId: "defillama-stables",
+      kind: "stablecoin",
+      assets: [s.symbol],
+      title: `Stablecoin ${s.symbol} supply $${(supply / 1e9).toFixed(2)}B`,
+      text: [
+        `${s.symbol} ${s.name} stablecoin supply circulating ${s.pegType} ${s.pegMechanism ?? ""}`,
+        `circulating ${(supply / 1e9).toFixed(3)} billion usd`,
+      ].join(" | "),
+      url: `https://defillama.com/stablecoin/${s.symbol}`,
+      publishedAt: capturedAt,
+      extra: { supply, mechanism: s.pegMechanism ?? null },
+    });
+  }
+} catch (e) {
+  failures.push({ source: "defillama-stables", error: String(e) });
 }
 
 // --- RSS/Atom news docs ----------------------------------------------------

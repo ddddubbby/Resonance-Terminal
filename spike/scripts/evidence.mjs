@@ -120,6 +120,60 @@ const refLines = [
 ];
 writeFileSync(join(outDir, "reference-market-tvl.md"), refLines.join("\n"));
 
+// Alpha signals reference sheet (recalibration): off-radar movers, Hyperliquid
+// positioning, stablecoin supply. Funding rounds would belong here too, but
+// DefiLlama's raises endpoint is now paywalled.
+const movers = [...docs.values()].filter((d) => d.kind === "mover");
+const hl = [...docs.values()].filter(
+  (d) => d.kind === "hyperliquid" || d.kind === "hyperliquid-spot",
+);
+const stables = [...docs.values()].filter((d) => d.kind === "stablecoin");
+const alphaLines = [
+  "# reference: alpha signals",
+  "",
+  `Captured ${runId}. Movers are screened from the full Binance spot tape (quote volume >= $5M; stable and leveraged pairs excluded).`,
+  "",
+  "## Off-radar movers (Binance full tape)",
+  "",
+  "| docId | asset | signal | 24h change | price | quote volume |",
+  "| --- | --- | --- | --- | --- | --- |",
+  ...movers
+    .sort((a, b) => (b.extra?.priceChangePercent ?? 0) - (a.extra?.priceChangePercent ?? 0))
+    .map((d) => {
+      const e = d.extra ?? {};
+      const vol = e.quoteVolume ? `$${(e.quoteVolume / 1e6).toFixed(1)}M` : "?";
+      return `| ${d.docId} | ${d.assets.join("/")} | ${e.signal ?? "?"} | ${e.priceChangePercent}% | ${e.lastPrice} | ${vol} |`;
+    }),
+  "",
+  "## Hyperliquid positioning",
+  "",
+  "| docId | asset | 24h volume | open interest | funding/h | 24h change |",
+  "| --- | --- | --- | --- | --- | --- |",
+  ...hl
+    .sort((a, b) => (b.extra?.volume ?? 0) - (a.extra?.volume ?? 0))
+    .map((d) => {
+      const e = d.extra ?? {};
+      const vol = e.volume ? `$${(e.volume / 1e9).toFixed(2)}B` : "?";
+      const oi = e.openInterest ? `$${(e.openInterest / 1e6).toFixed(0)}M` : "-";
+      const funding = e.funding != null ? `${(e.funding * 100).toFixed(4)}%` : "-";
+      const change = e.changePercent != null ? `${e.changePercent}%` : "-";
+      return `| ${d.docId} | ${d.assets.join("/")} | ${vol} | ${oi} | ${funding} | ${change} |`;
+    }),
+  "",
+  "## Stablecoin supply (top 20)",
+  "",
+  "| docId | symbol | circulating | mechanism |",
+  "| --- | --- | --- | --- |",
+  ...stables
+    .sort((a, b) => (b.extra?.supply ?? 0) - (a.extra?.supply ?? 0))
+    .map((d) => {
+      const e = d.extra ?? {};
+      const supply = e.supply ? `$${(e.supply / 1e9).toFixed(2)}B` : "?";
+      return `| ${d.docId} | ${d.assets.join("/")} | ${supply} | ${e.mechanism ?? "-"} |`;
+    }),
+];
+writeFileSync(join(outDir, "reference-alpha-signals.md"), alphaLines.join("\n"));
+
 writeFileSync(
   join(outDir, "index.md"),
   [
@@ -131,11 +185,11 @@ writeFileSync(
       (i) => `| [${i.bundleId}](./${i.bundleId}.md) | ${i.terms.join(", ")} | ${i.docs} |`,
     ),
     "",
-    "Reference: [market and TVL sheet](./reference-market-tvl.md)",
+    "Reference: [market and TVL sheet](./reference-market-tvl.md) | [alpha signals sheet](./reference-alpha-signals.md)",
     "",
     `Bundles: ${index.length}. Total docs in snapshot: ${docs.size}.`,
   ].join("\n"),
 );
 
 console.log(`evidence: ${outDir}`);
-console.log(`bundles: ${index.length} (+1 market/TVL reference)`);
+console.log(`bundles: ${index.length} (+ market/TVL reference + alpha signals reference)`);
