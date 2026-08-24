@@ -3,7 +3,13 @@
  *
  * Keep this module free of `process` side effects beyond stdout/stderr
  * writes so tests can exercise it without spawning a child process.
+ *
+ * Exit codes follow the locked contract in `@resonance/lib` (`EXIT_OK`,
+ * `EXIT_ERROR`, `EXIT_DEGRADED`). The import stays type-only so the packed
+ * tarball remains runnable without installing workspace dependencies; the
+ * literals below must match the contract values.
  */
+import type { ExitCode } from "@resonance/lib";
 
 /** CLI version. Keep in sync with packages/cli/package.json. */
 export const VERSION = "0.0.0";
@@ -24,7 +30,7 @@ See docs/DESIGN.md for the branch sequence.
  * Run the placeholder CLI against the given arguments (without
  * `process.argv[0]`/`argv[1]`). Returns the process exit code.
  */
-export function run(argv: readonly string[]): number {
+export function run(argv: readonly string[]): ExitCode {
   const first = argv[0];
   if (first === undefined || first === "--help" || first === "-h" || first === "help") {
     process.stdout.write(HELP);

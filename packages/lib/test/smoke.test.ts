@@ -1,21 +1,29 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { isSnapshotPlaceholder } from "../src/index.js";
+import { isSnapshot } from "../src/index.js";
 
 const fixturePath = fileURLToPath(new URL("./fixtures/smoke.json", import.meta.url));
-const fixture: unknown = JSON.parse(readFileSync(fixturePath, "utf8"));
+const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as Record<string, unknown>;
 
-describe("fixture smoke test", () => {
+describe("snapshot fixture smoke test", () => {
   it("accepts the bundled snapshot fixture", () => {
-    expect(isSnapshotPlaceholder(fixture)).toBe(true);
+    expect(isSnapshot(fixture)).toBe(true);
   });
 
-  it("rejects values that are not snapshot placeholders", () => {
-    expect(isSnapshotPlaceholder(null)).toBe(false);
-    expect(isSnapshotPlaceholder("snapshot")).toBe(false);
-    expect(isSnapshotPlaceholder({ schemaVersion: 2, scanId: "smoke-0001" })).toBe(false);
-    expect(isSnapshotPlaceholder({ schemaVersion: 1, scanId: "" })).toBe(false);
-    expect(isSnapshotPlaceholder({ schemaVersion: 1 })).toBe(false);
+  it("rejects values that violate the locked snapshot schema", () => {
+    expect(isSnapshot(null)).toBe(false);
+    expect(isSnapshot("snapshot")).toBe(false);
+    expect(isSnapshot({ ...fixture, schemaVersion: 1 })).toBe(false);
+    expect(isSnapshot({ ...fixture, runId: "" })).toBe(false);
+    expect(isSnapshot({ ...fixture, connectors: "binance" })).toBe(false);
+    expect(isSnapshot({ ...fixture, documents: [] })).toBe(true);
+    const [doc] = (fixture as { documents: unknown[] }).documents;
+    expect(
+      isSnapshot({ ...fixture, documents: [{ ...(doc as object), docId: "54e2d38ecbd" }] }),
+    ).toBe(false);
+    expect(isSnapshot({ ...fixture, documents: [{ ...(doc as object), kind: "rumor" }] })).toBe(
+      false,
+    );
   });
 });

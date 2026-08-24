@@ -1,5 +1,26 @@
 {
-  "schemaVersion": 1,
-  "scanId": "smoke-0001",
-  "connectors": ["binance", "coinbase", "defillama", "rss", "github"]
+  "schemaVersion": "0.1",
+  "runId": "smoke-0001",
+  "createdAt": "2026-08-24T00:00:00Z",
+  "connectors": [
+    {
+      "connectorId": "binance-spot",
+      "kind": "market",
+      "ok": true,
+      "status": 200,
+      "capturedAt": "2026-08-24T00:00:00Z"
+    }
+  ],
+  "documents": [
+    {
+      "docId": "54e2d38ecbdb",
+      "contentHash": "54e2d38ecbdbcbd2c6b9a4a320ce483f6976278209215a53e012c1091facc134",
+      "sourceId": "binance-spot",
+      "kind": "market",
+      "title": "Smoke fixture",
+      "text": "Fixture document for the smoke test.",
+      "url": "https://example.invalid/fixtures/smoke",
+      "capturedAt": "2026-08-24T00:00:00Z"
+    }
+  ]
 }
