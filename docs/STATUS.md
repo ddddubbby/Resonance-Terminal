@@ -32,11 +32,20 @@ The `refactor/alpha-contracts` branch (PR #2) replaced the bootstrap placeholder
 - Evidence references in `[docId]` format, connector and connector-result shapes, and snapshot schema `0.1` with structural validation.
 - `pnpm verify` builds before typechecking so workspace type declarations resolve on fresh clones.
 
+## Current state: canonical snapshot storage
+
+The `feat/canonical-snapshots` branch (PR #3) added the immutable, git-trackable snapshot layer to `@resonance/lib`:
+
+- Snapshots live at `<storeDir>/<runId>/snapshot.json`, serialized deterministically (sorted keys) for minimal git diffs.
+- Writes enforce the locked schema `0.1`, the deduplication invariants, and a traversal-safe runId pattern; rewrites are refused.
+- Reads accept only the locked schema version and fail with stable `SnapshotStoreError` codes otherwise.
+- No snapshot data is committed yet; real snapshots arrive with the connector branches.
+
 ## What does not exist yet
 
-- No product connectors, no canonical snapshots, no clustering, no scoring, no research workflow, no installer, no handoff. Wave 3 (`feat/canonical-snapshots`, `feat/market-connectors`, `feat/research-connectors`) builds these against the locked contracts.
+- No product connectors, no clustering, no scoring, no research workflow, no installer, no handoff. `feat/market-connectors` and `feat/research-connectors` build the five fixed connectors against the locked contracts and the canonical store.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, and the locked contracts are merged; no scored candidates and no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, and canonical snapshot storage are merged; no connectors, scored candidates, or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
