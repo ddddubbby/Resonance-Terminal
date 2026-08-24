@@ -286,3 +286,5 @@ export function sourceCountsOf(docs: readonly SourceDocument[]): Record<string, 
   }
   return counts;
 }
+
+export * from "./snapshot-store.js";
