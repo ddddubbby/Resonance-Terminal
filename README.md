@@ -37,7 +37,7 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-`pnpm verify` runs formatting/lint checks (Biome), type checks (tsc), builds both packages, runs the Vitest suite, and executes the packed-CLI smoke check in a temporary directory.
+`pnpm verify` runs formatting/lint checks (Biome), builds both packages, type checks (tsc), runs the Vitest suite, and executes the packed-CLI smoke check in a temporary directory.
 
 ### Useful scripts
 

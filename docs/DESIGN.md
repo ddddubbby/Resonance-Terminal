@@ -52,9 +52,15 @@ Rules: every manual scan adds a time-series observation; attention-derived compo
 
 ## Contract status
 
-- The connector and snapshot contracts in `packages/lib/src/index.ts` are **placeholders**. The stable contracts are formalized on `refactor/alpha-contracts` (branch 2) and locked in this document at that point.
-- CLI exit-code conventions, deduplication rules, evidence reference format, and the five lifecycle values are locked together with those contracts.
-- No implementation branch may redefine these contracts without a separately approved directional PR.
+The contracts below were proven by `spike/ten-real-candidates` and are **locked** in `packages/lib` (`@resonance/lib`, schema version `0.1`). No implementation branch may redefine them without a separately approved directional PR.
+
+- **Scan lifecycle** — five stages, in order: `fetch`, `normalize`, `cluster`, `evidence`, `candidates`. Every scan runs all five.
+- **CLI exit codes** — `0` success (tolerated source failures are recorded, never fatal), `1` hard error (invalid usage, contract violation, fatal pipeline failure), `2` degraded success (completed with recorded source failures).
+- **Document identity** — `contentHash` is SHA-256 of `sourceId|kind|url|title|text`; `docId` is its first 12 hex characters. Document kinds: `news`, `release`, `market`, `mover`, `tvl`, `positioning`, `positioning-spot`, `stablecoin` (the spike's `hyperliquid` kinds generalize to the `positioning` pair).
+- **Deduplication** — documents are unique by `contentHash`; on `(sourceId, url)` collisions the first write wins, and producers must give every document a distinct URL.
+- **Evidence reference format** — `[docId]`, a bracketed 12-hex docId. Evidence bundles carry their documents plus per-source counts.
+- **Snapshot schema** — version `0.1`: `schemaVersion`, `runId`, `createdAt`, one connector result per attempted connector (successes and recorded failures), and the deduplicated documents.
+- **Connectors** — `id`, `kind` (`market`, `tvl`, `feed`, `repo`, `positioning`, `stablecoin`), and a `fetch` returning a recorded result. Raw-capture persistence belongs to the snapshot layer, not the connector.
 
 ## Publication policy
 
