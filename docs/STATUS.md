@@ -23,11 +23,20 @@ The `spike/ten-real-candidates` branch (PR #1) proved the retrieval→normalize�
 - Two live runs; the second recalibrated with alpha-shaped sources and an early/low-consensus rubric, delivering ten docId-traceable candidates in `spike/candidates/2026-08-24-ten-candidates-v2.md`.
 - Spike outputs are not scored candidates, and spike scripts are not product code; the stable contracts they earned are locked on `refactor/alpha-contracts`.
 
+## Current state: locked alpha contracts
+
+The `refactor/alpha-contracts` branch (PR #2) replaced the bootstrap placeholders with the stable contracts in `@resonance/lib`, recorded as locked in DESIGN.md:
+
+- Five scan lifecycle stages (`fetch`, `normalize`, `cluster`, `evidence`, `candidates`) and CLI exit codes `0`/`1`/`2`.
+- Document identity (SHA-256 `contentHash`, 12-hex `docId`), eight document kinds, and deduplication rules (unique by content hash; first-write-wins on `(sourceId, url)`).
+- Evidence references in `[docId]` format, connector and connector-result shapes, and snapshot schema `0.1` with structural validation.
+- `pnpm verify` builds before typechecking so workspace type declarations resolve on fresh clones.
+
 ## What does not exist yet
 
-- No product connectors, no canonical snapshots, no clustering, no scoring, no research workflow, no installer, no handoff. Stable contracts are still placeholders until `refactor/alpha-contracts`.
+- No product connectors, no canonical snapshots, no clustering, no scoring, no research workflow, no installer, no handoff. Wave 3 (`feat/canonical-snapshots`, `feat/market-connectors`, `feat/research-connectors`) builds these against the locked contracts.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap and the live-data spike are merged; no scored candidates and no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, and the locked contracts are merged; no scored candidates and no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
