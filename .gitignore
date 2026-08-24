@@ -3,3 +3,6 @@ dist/
 coverage/
 *.tsbuildinfo
 .DS_Store
+
+# Spike data (raw captures, snapshots, evidence bundles) is regenerated locally
+spike/data/
