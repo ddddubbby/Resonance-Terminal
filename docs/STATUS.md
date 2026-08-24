@@ -41,11 +41,19 @@ The `feat/canonical-snapshots` branch (PR #3) added the immutable, git-trackable
 - Reads accept only the locked schema version and fail with stable `SnapshotStoreError` codes otherwise.
 - No snapshot data is committed yet; real snapshots arrive with the connector branches.
 
+## Current state: market connectors and raw captures
+
+The `feat/market-connectors` branch (PR #4) added two of the five fixed connectors to `@resonance/lib`:
+
+- `BinanceSpotConnector` (full 24h spot tape via `data-api.binance.vision`, the official public market-data host) and `CoinbaseSpotConnector` (product list with price and volume), both non-throwing with injectable fetch.
+- `CapturingConnector`/`RawCapture` extend the locked connector interface additively; captures persist to `<runDir>/raw/<connectorId>.json` — deterministic, immutable, with failures recorded.
+- Live smoke: 3,684 Binance tickers and 833 Coinbase products fetched without keys.
+
 ## What does not exist yet
 
-- No product connectors, no clustering, no scoring, no research workflow, no installer, no handoff. `feat/market-connectors` and `feat/research-connectors` build the five fixed connectors against the locked contracts and the canonical store.
+- Three of the five fixed connectors remain (DefiLlama, RSS/Atom, GitHub). No clustering, no scoring, no research workflow, no installer, no handoff yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, and canonical snapshot storage are merged; no connectors, scored candidates, or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, and the market connectors are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
