@@ -4,17 +4,16 @@ This file carries the integration agent's current milestone state so a fresh ses
 
 ## Objective
 
-Reach milestone `v0.1.0-alpha.1` — a usable, crypto-only private alpha built publicly on GitHub — by executing the branch sequence in [DESIGN.md](DESIGN.md), starting with `bootstrap/repository-base`.
+Reach milestone `v0.1.0-alpha.1` — a usable, crypto-only private alpha built publicly on GitHub — by executing the branch sequence in [DESIGN.md](DESIGN.md). The first two branches are merged; next is `refactor/alpha-contracts`.
 
 ## Current State
 
-`bootstrap/repository-base` is merged and published as `main` at https://github.com/ddddubbby/Resonance-Terminal with clean Git history. The repository skeleton is complete: pnpm workspace (`packages/lib`, `packages/cli`), pinned toolchain, strict TypeScript, Biome, Vitest, `pnpm verify` including the packed-CLI smoke check, placeholder contracts and CLI, canonical docs, and the CI workflow. GitHub milestone and branch-contract issues are not created yet.
+`main` carries two merged branches. `bootstrap/repository-base`: the repository skeleton (pnpm workspace, pinned toolchain, strict TypeScript, Biome, Vitest, `pnpm verify` with packed-CLI smoke check, placeholder contracts and CLI, canonical docs, CI). `spike/ten-real-candidates` (PR #1): two live runs of the retrieval→normalize→cluster→evidence→candidates loop on keyless sources, the second recalibrated with alpha-shaped sources (Binance full tape, Hyperliquid positioning, stablecoin supply, alternative feeds, category lens) and an early/low-consensus rubric, delivering ten docId-traceable candidates in `spike/candidates/2026-08-24-ten-candidates-v2.md`. The connector and snapshot contracts in `packages/lib` are still placeholders; `refactor/alpha-contracts` locks the stable ones proven by the spike. GitHub milestone and branch-contract issues remain uncreated (`gh` CLI unusable in this environment; `ISSUES-DRAFT.md` holds the text).
 
 ## Next Action
 
-1. Create the GitHub milestone `v0.1.0-alpha.1 — Usable Private Alpha` and one issue per branch contract (draft text available in the local `ISSUES-DRAFT.md` scratch file).
-2. Begin `spike/ten-real-candidates` from `main`.
+Begin `refactor/alpha-contracts` from `main`: formalize in `packages/lib` the connector, document, snapshot, and evidence contracts plus the five lifecycle values, CLI exit-code conventions, deduplication rules, and evidence reference format proven by the spike, and record the locked contracts in DESIGN.md.
 
 ## Verification
 
-`pnpm verify` passes both on the bootstrap branch and from a fresh clone (`pnpm install --frozen-lockfile` then `pnpm verify`: Biome clean, typecheck clean, both packages build, 6 tests pass, packed CLI answers `--help` from a temporary directory). `main` on GitHub carries the same two clean commits with no build artifacts; CI should run `pnpm verify` on the push.
+`pnpm verify` is green on `main` after the spike merge (Biome clean, typecheck clean, both packages build, 6 tests pass, packed CLI answers `--help`). On the spike branch the full pipeline ran live: 42/43 requests ok, 484 docs, 253 clusters, 215 bundles, ten v2 candidates.

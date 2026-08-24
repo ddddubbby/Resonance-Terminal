@@ -15,11 +15,19 @@ The `bootstrap/repository-base` branch establishes the minimal public repository
 - One fixture-based smoke test.
 - One GitHub Actions workflow running `pnpm verify` on every push and pull request.
 
+## Current state: live-data spike
+
+The `spike/ten-real-candidates` branch (PR #1) proved the retrieval→normalize→cluster→evidence→candidates loop on live keyless sources before formal infrastructure:
+
+- Four spike scripts under `spike/scripts/` fetch, normalize, cluster, and build bounded evidence bundles from public data (Binance, DefiLlama, Hyperliquid, stablecoin supply, seven RSS feeds, GitHub releases).
+- Two live runs; the second recalibrated with alpha-shaped sources and an early/low-consensus rubric, delivering ten docId-traceable candidates in `spike/candidates/2026-08-24-ten-candidates-v2.md`.
+- Spike outputs are not scored candidates, and spike scripts are not product code; the stable contracts they earned are locked on `refactor/alpha-contracts`.
+
 ## What does not exist yet
 
-- No connectors, no snapshots, no clustering, no scoring, no research workflow, no installer, no handoff.
+- No product connectors, no canonical snapshots, no clustering, no scoring, no research workflow, no installer, no handoff. Stable contracts are still placeholders until `refactor/alpha-contracts`.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — not started (bootstrap in progress). See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap and the live-data spike are merged; no scored candidates and no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
