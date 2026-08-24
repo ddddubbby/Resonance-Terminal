@@ -65,9 +65,14 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
+/** Serialize any JSON value deterministically (sorted keys) for git. */
+export function canonicalJsonString(value: unknown): string {
+  return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
+}
+
 /** Serialize a snapshot deterministically (sorted keys, trailing newline). */
 export function serializeSnapshot(snapshot: Snapshot): string {
-  return `${JSON.stringify(canonicalize(snapshot), null, 2)}\n`;
+  return canonicalJsonString(snapshot);
 }
 
 /** Verify the locked deduplication invariants over snapshot documents. */
