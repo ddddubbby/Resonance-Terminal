@@ -66,6 +66,15 @@ The `feat/corpus-clustering` branch (PR #6) delivered stage three of the scan li
 - Cross-source cluster share rose from the spike baseline of 41.7% / 11.9% to 75.7% of multi-doc clusters and 16.8% of all clusters; `crossSourceShare()` ships as the reusable resonance metric.
 - Clusters are run-local derived views, persisted as `<runDir>/clusters.json` with versioned configuration embedded; the locked snapshot schema is untouched. DESIGN.md records the stage-three decisions (run-local identity, deterministic versus stable).
 
+## Current state: narrative granularity revision
+
+`direction/narrative-granularity` (PR #7) superseded the clustering-stage decisions after measurement on the shipped implementation (240 textual documents, 28,680 pairs: 99.6% below threshold; top pairs 100% genuine proper-noun events, blind to paraphrase):
+
+- Lexical clustering is demoted to deduplication and context reduction; the merged module keeps this role.
+- Event grouping is agent-side in v1, with written rationale and model/rules stamps — interpretation recorded as interpretation.
+- An explicit event-to-theme layer owns narrative identity across runs (superseding run-local clusters), and the corpus accumulates across runs.
+- The pushed-but-unmerged `feat/partial-scoring` branch is held for rework: gate, ledger, coverage, and weight machinery carry over; scored observations change from scan-level to narrative-level.
+
 ## What does not exist yet
 
 - All five fixed connector families and the clustering stage are merged; no scoring, no research workflow, no installer, no handoff yet.
@@ -73,4 +82,4 @@ The `feat/corpus-clustering` branch (PR #6) delivered stage three of the scan li
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, and the clustering stage are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, and the narrative-granularity direction are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
