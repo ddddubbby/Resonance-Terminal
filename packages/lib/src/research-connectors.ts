@@ -5,8 +5,12 @@
  * recorded outcomes, injectable fetch. Feed payloads are kept as raw XML
  * text; XML interpretation belongs to the normalize stage.
  *
- * The default feed and repo lists are the ones proven by
- * `spike/ten-real-candidates` (seven feeds, eleven repositories).
+ * The default feed and repo lists are seeded by `spike/ten-real-candidates`
+ * and re-curated for traction: stagnant sources were dropped in favor of
+ * actively releasing ones. Robinhood Chain has no machine-readable public
+ * channel (no public repo, no RSS on its newsroom or blog), so its momentum
+ * signal comes from DefiLlama TVL in the protocols capture and from the
+ * Arbitrum stack repos in {@link DEFAULT_REPOS}.
  */
 
 import {
@@ -101,18 +105,21 @@ export const DEFAULT_FEEDS: ReadonlyArray<{ readonly id: string; readonly url: s
 ];
 
 /**
- * Curated public repositories proven by the spike. Unauthenticated GitHub
+ * Curated public repositories proven by the spike, re-curated for traction:
+ * `solana-labs/solana` (frozen at v1.18 since 2024-10) was replaced by the
+ * active validator `anza-xyz/agave`, and the release-less `polkadot/polkadot`
+ * by the momentum Ethereum client `paradigmxyz/reth`. Unauthenticated GitHub
  * budget is 60 requests/hour; one request per repo keeps this cheap.
  */
 export const DEFAULT_REPOS: ReadonlyArray<string> = [
   "ethereum/go-ethereum",
   "ethereum-optimism/optimism",
   "OffchainLabs/nitro",
-  "solana-labs/solana",
+  "anza-xyz/agave",
+  "paradigmxyz/reth",
   "MystenLabs/sui",
   "aptos-labs/aptos-core",
   "cosmos/cosmos-sdk",
-  "polkadot/polkadot",
   "bitcoin/bitcoin",
   "base/node",
   "hyperliquid-dex/hyperliquid-python-sdk",

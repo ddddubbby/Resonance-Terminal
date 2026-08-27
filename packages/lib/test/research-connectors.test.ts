@@ -99,9 +99,13 @@ describe("default lists and factories", () => {
     expect(ids.every((id) => id.startsWith("rss-"))).toBe(true);
   });
 
-  it("ships the eleven spike-proven repos", () => {
+  it("ships eleven repos, curated for traction", () => {
     expect(DEFAULT_REPOS).toHaveLength(11);
     expect(DEFAULT_REPOS).toContain("hyperliquid-dex/hyperliquid-python-sdk");
+    expect(DEFAULT_REPOS).toContain("anza-xyz/agave");
+    expect(DEFAULT_REPOS).toContain("paradigmxyz/reth");
+    expect(DEFAULT_REPOS).not.toContain("polkadot/polkadot");
+    expect(DEFAULT_REPOS).not.toContain("solana-labs/solana");
   });
 
   it("builds research connectors in stable order: tvl, feeds, repos", () => {
