@@ -49,11 +49,20 @@ The `feat/market-connectors` branch (PR #4) added two of the five fixed connecto
 - `CapturingConnector`/`RawCapture` extend the locked connector interface additively; captures persist to `<runDir>/raw/<connectorId>.json` — deterministic, immutable, with failures recorded.
 - Live smoke: 3,684 Binance tickers and 833 Coinbase products fetched without keys.
 
+## Current state: research connectors, curated for traction
+
+The `feat/research-connectors` branch (PR #5) added the last three of the five fixed connector families to `@resonance/lib` and re-curated the default repo list around chains with actual momentum:
+
+- `DefiLlamaProtocolsConnector` (kind `tvl`), `FeedConnector` (kind `feed`, raw XML payloads, browser-like default user agent), and `GitHubReleasesConnector` (kind `repo`, one unauthenticated `releases/latest` request per repository).
+- Default lists are spike-seeded and traction-curated: seven feeds, and eleven repos with `polkadot/polkadot` dropped (no releases, stagnant), the frozen `solana-labs/solana` replaced by the active validator `anza-xyz/agave`, and `paradigmxyz/reth` added.
+- Robinhood Chain has no machine-readable public channel (closed-infra Arbitrum Orbit L2, no RSS); its momentum signal arrives via DefiLlama, which lists the chain and its protocols, plus the Arbitrum stack repos in the list.
+- Live smoke: 19/19 research endpoints ok, including 129 protocols deployed on Robinhood Chain in the DefiLlama capture.
+
 ## What does not exist yet
 
-- Three of the five fixed connectors remain (DefiLlama, RSS/Atom, GitHub). No clustering, no scoring, no research workflow, no installer, no handoff yet.
+- All five fixed connector families are merged; no clustering, no scoring, no research workflow, no installer, no handoff yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, and the market connectors are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, and all five fixed connector families are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
