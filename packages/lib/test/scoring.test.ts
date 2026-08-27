@@ -4,18 +4,18 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   addObservation,
-  buildObservation,
-  type Cluster,
+  buildNarrativeObservation,
   COMPONENT_WEIGHTS,
   coldStartSatisfied,
   makeDocument,
+  type NarrativeObservation,
+  narrativeScore,
   ObservationStoreError,
   observationsPath,
   type PartialScore,
-  partialScore,
   readObservations,
   resolveMentions,
-  type ScanObservation,
+  scoreAll,
 } from "../src/index.js";
 
 const BASE = Date.parse("2026-08-01T00:00:00.000Z");
@@ -24,18 +24,17 @@ function day(days: number): string {
   return new Date(BASE + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-function obs(overrides: Partial<ScanObservation> = {}, days = 0): ScanObservation {
+function obs(overrides: Partial<NarrativeObservation> = {}, days = 0): NarrativeObservation {
   return {
     runId: `run-day-${days}`,
     scannedAt: day(days),
-    clusters: 20,
-    multiDocClusters: 5,
-    crossSourceClusters: 2,
-    textualDocuments: 100,
-    largestClusterSize: 3,
+    narrativeId: "n0001",
+    documents: 4,
+    sources: 2,
     assetsMentioned: ["AAA"],
     marketAssets: ["AAA"],
     movers: [{ asset: "AAA", changePercent: 12 }],
+    corpusDocuments: 100,
     ...overrides,
   };
 }
@@ -90,17 +89,17 @@ describe("coldStartSatisfied", () => {
   it("ignores unparseable scan times", () => {
     expect(
       coldStartSatisfied([
-        obs({ scannedAt: "not-a-date" }, 0),
-        obs({ scannedAt: "not-a-date" }, 4),
-        obs({ scannedAt: "not-a-date" }, 8),
+        { scannedAt: "not-a-date" },
+        { scannedAt: "not-a-date" },
+        { scannedAt: "not-a-date" },
       ]),
     ).toBe(false);
   });
 });
 
-describe("partialScore", () => {
+describe("narrativeScore", () => {
   it("scores nothing without observations", () => {
-    const result = partialScore([]);
+    const result = narrativeScore([]);
     expect(result.score).toBeNull();
     expect(result.coverage).toBe(0);
     expect(result.full).toBe(false);
@@ -108,7 +107,7 @@ describe("partialScore", () => {
   });
 
   it("keeps attention components cold-started before the gate", () => {
-    const result = partialScore([obs()]);
+    const result = narrativeScore([obs()]);
     for (const name of ["momentum", "novelty", "breadth", "unsaturation"]) {
       const c = component(result, name);
       expect(c?.available).toBe(false);
@@ -130,28 +129,21 @@ describe("partialScore", () => {
         { asset: "AAA", changePercent: 30 },
       ],
     });
-    const result = partialScore([threeMovers]);
+    const result = narrativeScore([threeMovers]);
     expect(result.score).toBeCloseTo(1, 10);
   });
 
   it("delivers a full score once every component is available", () => {
     const series = [
-      obs(
-        { crossSourceClusters: 2, assetsMentioned: ["OLD"], marketAssets: ["NEW1"], movers: [] },
-        0,
-      ),
-      obs(
-        { crossSourceClusters: 3, assetsMentioned: ["OLD"], marketAssets: ["NEW1"], movers: [] },
-        4,
-      ),
+      obs({ documents: 2, assetsMentioned: ["OLD"], movers: [] }, 0),
+      obs({ documents: 3, assetsMentioned: ["OLD"], movers: [] }, 4),
       obs(
         {
-          crossSourceClusters: 4,
-          multiDocClusters: 5,
+          documents: 4,
+          sources: 4,
           assetsMentioned: ["NEW1"],
           marketAssets: ["NEW1"],
-          largestClusterSize: 2,
-          textualDocuments: 100,
+          corpusDocuments: 100,
           movers: [
             { asset: "NEW1", changePercent: 5 },
             { asset: "NEW1", changePercent: 8 },
@@ -161,34 +153,22 @@ describe("partialScore", () => {
         8,
       ),
     ];
-    const result = partialScore(series);
+    const result = narrativeScore(series);
     expect(result.full).toBe(true);
     expect(result.coverage).toBeCloseTo(1, 10);
     // momentum: growth (4-2)/2 = 1 -> 1.0; novelty: NEW1 unseen -> 1.0;
-    // breadth: 4/5 = 0.8; unsaturation: 1 - 2/100 = 0.98; confirmation 1;
-    // investability 1. Weighted: 0.3 + 0.2 + 0.12 + 0.147 + 0.1 + 0.1.
-    expect(result.score).toBeCloseTo(0.967, 10);
+    // breadth: (4-1)/3 = 1.0; unsaturation: 1 - 4/100 = 0.96; confirmation
+    // 1; investability 1. Weighted: 0.3 + 0.2 + 0.15 + 0.144 + 0.1 + 0.1.
+    expect(result.score).toBeCloseTo(0.994, 10);
   });
 
-  it("measures momentum as relative cross-source growth", () => {
-    const flat = [
-      obs({ crossSourceClusters: 4 }, 0),
-      obs({}, 4),
-      obs({ crossSourceClusters: 4 }, 8),
-    ];
-    expect(component(partialScore(flat), "momentum")?.score).toBeCloseTo(0.5, 10);
-    const tripling = [
-      obs({ crossSourceClusters: 1 }, 0),
-      obs({}, 4),
-      obs({ crossSourceClusters: 3 }, 8),
-    ];
-    expect(component(partialScore(tripling), "momentum")?.score).toBeCloseTo(1, 10);
-    const declining = [
-      obs({ crossSourceClusters: 4 }, 0),
-      obs({}, 4),
-      obs({ crossSourceClusters: 2 }, 8),
-    ];
-    expect(component(partialScore(declining), "momentum")?.score).toBeCloseTo(0.25, 10);
+  it("measures momentum as relative growth of the narrative's coverage", () => {
+    const flat = [obs({ documents: 4 }, 0), obs({}, 4), obs({ documents: 4 }, 8)];
+    expect(component(narrativeScore(flat), "momentum")?.score).toBeCloseTo(0.5, 10);
+    const tripling = [obs({ documents: 2 }, 0), obs({}, 4), obs({ documents: 6 }, 8)];
+    expect(component(narrativeScore(tripling), "momentum")?.score).toBeCloseTo(1, 10);
+    const declining = [obs({ documents: 4 }, 0), obs({}, 4), obs({ documents: 2 }, 8)];
+    expect(component(narrativeScore(declining), "momentum")?.score).toBeCloseTo(0.25, 10);
   });
 
   it("measures novelty as the share of unseen mentioned assets", () => {
@@ -197,41 +177,37 @@ describe("partialScore", () => {
       obs({}, 4),
       obs({ assetsMentioned: ["AAA", "BBB"] }, 8),
     ];
-    expect(component(partialScore(halfNew), "novelty")?.score).toBeCloseTo(0.5, 10);
+    expect(component(narrativeScore(halfNew), "novelty")?.score).toBeCloseTo(0.5, 10);
     const noAssets = [obs({}, 0), obs({}, 4), obs({ assetsMentioned: [] }, 8)];
-    expect(component(partialScore(noAssets), "novelty")?.available).toBe(false);
-    expect(component(partialScore(noAssets), "novelty")?.reason).toBe("missing-input");
+    expect(component(narrativeScore(noAssets), "novelty")?.available).toBe(false);
+    expect(component(narrativeScore(noAssets), "novelty")?.reason).toBe("missing-input");
   });
 
-  it("measures breadth as the cross-source share of convergent events", () => {
-    const series = [
-      obs({}, 0),
-      obs({}, 4),
-      obs({ multiDocClusters: 8, crossSourceClusters: 6 }, 8),
-    ];
-    expect(component(partialScore(series), "breadth")?.score).toBeCloseTo(0.75, 10);
+  it("measures breadth as source convergence", () => {
+    const one = [obs({}, 0), obs({}, 4), obs({ sources: 1 }, 8)];
+    expect(component(narrativeScore(one), "breadth")?.score).toBeCloseTo(0, 10);
+    const two = [obs({}, 0), obs({}, 4), obs({ sources: 2 }, 8)];
+    expect(component(narrativeScore(two), "breadth")?.score).toBeCloseTo(1 / 3, 10);
+    const many = [obs({}, 0), obs({}, 4), obs({ sources: 6 }, 8)];
+    expect(component(narrativeScore(many), "breadth")?.score).toBeCloseTo(1, 10);
+    const none = [obs({}, 0), obs({}, 4), obs({ documents: 0, sources: 0 }, 8)];
+    expect(component(narrativeScore(none), "breadth")?.reason).toBe("missing-input");
   });
 
-  it("measures unsaturation as dispersed attention", () => {
-    const dispersed = [
-      obs({}, 0),
-      obs({}, 4),
-      obs({ largestClusterSize: 1, textualDocuments: 100 }, 8),
-    ];
-    expect(component(partialScore(dispersed), "unsaturation")?.score).toBeCloseTo(0.99, 10);
-    const saturated = [
-      obs({}, 0),
-      obs({}, 4),
-      obs({ largestClusterSize: 100, textualDocuments: 100 }, 8),
-    ];
-    expect(component(partialScore(saturated), "unsaturation")?.score).toBeCloseTo(0, 10);
+  it("measures unsaturation as remaining attention headroom", () => {
+    const sliver = [obs({}, 0), obs({}, 4), obs({ documents: 1 }, 8)];
+    expect(component(narrativeScore(sliver), "unsaturation")?.score).toBeCloseTo(0.99, 10);
+    const dominant = [obs({}, 0), obs({}, 4), obs({ documents: 100, corpusDocuments: 100 }, 8)];
+    expect(component(narrativeScore(dominant), "unsaturation")?.score).toBeCloseTo(0, 10);
+    const emptyCorpus = [obs({}, 0), obs({}, 4), obs({ corpusDocuments: 0 }, 8)];
+    expect(component(narrativeScore(emptyCorpus), "unsaturation")?.reason).toBe("missing-input");
   });
 
-  it("requires movers and coverage for market confirmation", () => {
+  it("requires movers and mentions for market confirmation", () => {
     const none = [obs({}, 0), obs({}, 4), obs({ movers: [] }, 8)];
-    expect(component(partialScore(none), "marketConfirmation")?.reason).toBe("missing-input");
+    expect(component(narrativeScore(none), "marketConfirmation")?.reason).toBe("missing-input");
     const one = [obs({}, 0), obs({}, 4), obs({ movers: [{ asset: "AAA", changePercent: 9 }] }, 8)];
-    expect(component(partialScore(one), "marketConfirmation")?.score).toBeCloseTo(1 / 3, 10);
+    expect(component(narrativeScore(one), "marketConfirmation")?.score).toBeCloseTo(1 / 3, 10);
   });
 
   it("measures investability against exchange listings", () => {
@@ -240,14 +216,33 @@ describe("partialScore", () => {
       obs({}, 4),
       obs({ assetsMentioned: ["AAA", "BBB"], marketAssets: ["AAA"] }, 8),
     ];
-    expect(component(partialScore(series), "investability")?.score).toBeCloseTo(0.5, 10);
+    expect(component(narrativeScore(series), "investability")?.score).toBeCloseTo(0.5, 10);
+  });
+});
+
+describe("scoreAll", () => {
+  it("scores every narrative of a ledger independently", () => {
+    const scores = scoreAll([
+      obs({}, 0),
+      obs({ narrativeId: "n0002", movers: [], assetsMentioned: [] }, 0),
+      obs({}, 8),
+    ]);
+    expect(scores.size).toBe(2);
+    expect(scores.get("n0001")?.components.length).toBe(6);
+    expect(scores.get("n0002")?.score).toBeNull();
   });
 });
 
 describe("mention resolution", () => {
   function textualDoc(title: string, kind: "news" | "market" = "news") {
     return makeDocument(
-      { sourceId: "rss-a", kind, url: `https://example.invalid/${title.length}`, title, text: "" },
+      {
+        sourceId: "rss-a",
+        kind,
+        url: `https://example.invalid/${title.length}`,
+        title,
+        text: "",
+      },
       "2026-08-27T00:00:00.000Z",
     );
   }
@@ -279,87 +274,60 @@ describe("mention resolution", () => {
   });
 });
 
-describe("buildObservation", () => {
-  function doc(sourceId: string, kind: "news" | "release" | "market", asset?: string) {
+describe("buildNarrativeObservation", () => {
+  function doc(
+    sourceId: string,
+    kind: "news" | "release" | "market",
+    title: string,
+    asset?: string,
+  ) {
     return makeDocument(
       {
         sourceId,
         kind,
-        url: `https://example.invalid/${sourceId}/${asset ?? "x"}`,
-        title: "t",
-        text: "b",
+        url: `https://example.invalid/${sourceId}/${title.length}`,
+        title,
+        text: "",
       },
       "2026-08-27T00:00:00.000Z",
       asset !== undefined ? { asset } : {},
     );
   }
 
-  function cluster(size: number, sourceIds: string[], clusterId: string): Cluster {
-    return {
-      clusterId,
-      size,
-      topTerms: [],
-      docs: sourceIds.map((sourceId, i) => ({
-        docId: `${clusterId}doc${i}aaaa`,
-        sourceId,
-        kind: "news" as const,
-        title: `t${i}`,
-        url: `https://example.invalid/${clusterId}/${i}`,
-      })),
-    };
-  }
-
   it("derives the observation from locked-contract inputs", () => {
-    const observation = buildObservation({
+    const observation = buildNarrativeObservation({
       runId: "2026-08-27T00-00-00",
       scannedAt: "2026-08-27T00:00:00.000Z",
-      documents: [
-        doc("rss-a", "news", "AAA"),
-        doc("rss-b", "news", "BBB"),
-        doc("rss-a", "news", "AAA"),
-        doc("github-x", "release"),
-        doc("binance-spot", "market", "AAA"),
+      narrativeId: "n0001",
+      narrativeDocuments: [
+        doc("rss-a", "news", "Solana network upgrade ships"),
+        doc("rss-b", "news", "Solana ships upgrade"),
+        doc("rss-a", "news", "Unrelated governance vote"),
       ],
-      clusters: [cluster(2, ["rss-a", "rss-b"], "c000"), cluster(1, ["rss-a"], "c001")],
-      movers: [{ asset: "AAA", changePercent: 15 }],
-    });
-    expect(observation.clusters).toBe(2);
-    expect(observation.multiDocClusters).toBe(1);
-    expect(observation.crossSourceClusters).toBe(1);
-    expect(observation.textualDocuments).toBe(4);
-    expect(observation.largestClusterSize).toBe(2);
-    expect(observation.assetsMentioned).toEqual(["AAA", "BBB"]);
-    expect(observation.marketAssets).toEqual(["AAA"]);
-    expect(observation.movers).toEqual([{ asset: "AAA", changePercent: 15 }]);
-  });
-
-  it("resolves mentions when documents carry no asset", () => {
-    const observation = buildObservation({
-      runId: "run-r",
-      scannedAt: "2026-08-27T00:00:00.000Z",
-      documents: [
-        makeDocument(
-          {
-            sourceId: "rss-a",
-            kind: "news",
-            url: "https://example.invalid/3",
-            title: "Solana at ATH",
-            text: "",
-          },
-          "2026-08-27T00:00:00.000Z",
-        ),
+      corpus: [
+        doc("rss-a", "news", "Solana network upgrade ships"),
+        doc("rss-b", "news", "Solana ships upgrade"),
+        doc("rss-a", "news", "Unrelated governance vote"),
+        doc("binance-spot", "market", "SOL pairs rally", "SOL"),
+        doc("binance-spot", "market", "BTC pairs rally", "BTC"),
       ],
-      clusters: [],
+      movers: [{ asset: "sol", changePercent: 15 }],
     });
+    expect(observation.documents).toBe(3);
+    expect(observation.sources).toBe(2);
     expect(observation.assetsMentioned).toEqual(["solana"]);
+    expect(observation.marketAssets).toEqual(["BTC", "SOL"]);
+    expect(observation.movers).toEqual([{ asset: "sol", changePercent: 15 }]);
+    expect(observation.corpusDocuments).toBe(3);
   });
 
   it("defaults movers to none", () => {
-    const observation = buildObservation({
+    const observation = buildNarrativeObservation({
       runId: "run-1",
       scannedAt: "2026-08-27T00:00:00.000Z",
-      documents: [],
-      clusters: [],
+      narrativeId: "n0001",
+      narrativeDocuments: [],
+      corpus: [],
     });
     expect(observation.movers).toEqual([]);
     expect(observation.assetsMentioned).toEqual([]);
@@ -375,10 +343,16 @@ describe("observation ledger", () => {
     expect(read.map((o) => o.runId)).toEqual(["run-day-0", "run-day-8"]);
   });
 
-  it("refuses duplicate run ids and traversal-unsafe ids", () => {
+  it("allows one observation per narrative per run", () => {
     const store = freshStore();
     addObservation(store, obs({}, 0));
-    expectObservationError(() => addObservation(store, obs({}, 0)), "duplicate-run-id");
+    addObservation(store, obs({ narrativeId: "n0002" }, 0));
+    expect(readObservations(store)).toHaveLength(2);
+    expectObservationError(() => addObservation(store, obs({}, 0)), "duplicate-observation");
+  });
+
+  it("refuses traversal-unsafe run ids", () => {
+    const store = freshStore();
     expectObservationError(
       () => addObservation(store, obs({ runId: "../escape" })),
       "invalid-run-id",
