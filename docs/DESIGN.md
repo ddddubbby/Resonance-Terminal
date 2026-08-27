@@ -62,6 +62,15 @@ The contracts below were proven by `spike/ten-real-candidates` and are **locked*
 - **Snapshot schema** — version `0.1`: `schemaVersion`, `runId`, `createdAt`, one connector result per attempted connector (successes and recorded failures), and the deduplicated documents.
 - **Connectors** — `id`, `kind` (`market`, `tvl`, `feed`, `repo`, `positioning`, `stablecoin`), and a `fetch` returning a recorded result. Raw-capture persistence belongs to the snapshot layer, not the connector.
 
+## Clustering stage decisions
+
+Recorded with the approved revised scope of `feat/corpus-clustering`. These are stage-three policy, not locked schema:
+
+- **Clusters are run-local.** `c000` in one run is unrelated to `c000` in another. Greedy clustering is order-sensitive and each scan clusters independently, so narrative identity across runs is owned by stage four, not by cluster ids.
+- **Deterministic is not stable.** Same input under the same configuration yields the same output (traceable), but a different document order yields different clusters (not comparable across runs). These are documented as two separate properties.
+- **Clustering output is a derived view, not part of the locked snapshot schema.** It persists as `<runDir>/clusters.json` with its versioned configuration embedded (stopwords, threshold, clustered kinds), so a configuration fix re-derives history without re-fetching. Changing that configuration rewrites all derived cluster output and is treated as scoring configuration.
+- **Only `news` and `release` documents are clustered.** The structured kinds (`market`, `mover`, `tvl`, `positioning`, `positioning-spot`, `stablecoin`) carry no text semantics and feed stage-four metrics directly.
+
 ## Publication policy
 
 - GitHub publication happens immediately after `bootstrap/repository-base` passes locally; the branch is pushed as `main`.
