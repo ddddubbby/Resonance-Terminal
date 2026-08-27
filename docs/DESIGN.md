@@ -73,6 +73,18 @@ Supersedes the earlier "Clustering stage decisions". Measured on the spike corpu
 - **Only `news` and `release` documents participate in grouping.** The structured kinds (`market`, `mover`, `tvl`, `positioning`, `positioning-spot`, `stablecoin`) carry no text semantics and feed metrics directly.
 - **Reproducibility restated.** The lexical pass stays deterministic (same input, same output, traceable). Agent grouping and narrative identity are versioned interpretations: reproducible by record (inputs, model, rules version, rationale), not bit-stable.
 
+## Scoring stage decisions
+
+Recorded with the reworked `feat/partial-scoring`, under the approved scoring direction and the narrative-granularity revision above. Implementation policy; it does not redefine either:
+
+- **The scored unit is the narrative.** Every manual scan records one observation per narrative it covers; the cold-start gate applies to each narrative's own series.
+- **Component split.** `momentum`, `novelty`, `breadth`, and `unsaturation` are the attention-derived components gated by the cold-start rule; `marketConfirmation` and `investability` are measurable from a single scan.
+- **Honest availability.** A component lacking its required inputs is recorded as unavailable with a reason, never scored as zero. The partial score reweights the available components; coverage is the sum of available weights; a full score requires all six.
+- **The time series is an append-only ledger** at `<storeDir>/observations.json` (own schema `0.1`), one observation per narrative per manual scan — a derived artifact outside the locked snapshot schema, like clustering.
+- **Grouping records are run-local derived views** at `<runDir>/grouping.json` (own schema `0.1`): agent-produced event groups with written rationale and a model/rules stamp, one-event membership per document. The narrative ledger lives at `<storeDir>/narratives.json` (own schema `0.1`); identity allocation is deterministic and library-side, matching a group to an existing narrative is agent-side interpretation.
+- **Metric formulas are deterministic and monotone, versioned with the library.** Recalibrating any formula is a score-rule change requiring an approved PR.
+- **Connectors stay source-neutral and never fill `asset`.** The scan stage resolves mentions with the library's `resolveMentions` (rules version `1`, a deliberately small seed vocabulary). Extending the vocabulary is a versioned change.
+
 ## Publication policy
 
 - GitHub publication happens immediately after `bootstrap/repository-base` passes locally; the branch is pushed as `main`.
