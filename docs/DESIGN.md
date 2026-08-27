@@ -71,6 +71,16 @@ Recorded with the approved revised scope of `feat/corpus-clustering`. These are 
 - **Clustering output is a derived view, not part of the locked snapshot schema.** It persists as `<runDir>/clusters.json` with its versioned configuration embedded (stopwords, threshold, clustered kinds), so a configuration fix re-derives history without re-fetching. Changing that configuration rewrites all derived cluster output and is treated as scoring configuration.
 - **Only `news` and `release` documents are clustered.** The structured kinds (`market`, `mover`, `tvl`, `positioning`, `positioning-spot`, `stablecoin`) carry no text semantics and feed stage-four metrics directly.
 
+## Scoring stage decisions
+
+Recorded with `feat/partial-scoring`, under the approved scoring direction above. Implementation policy; it does not redefine the direction:
+
+- **Component split.** `momentum`, `novelty`, `breadth`, and `unsaturation` are the attention-derived components gated by the cold-start rule; `marketConfirmation` and `investability` are measurable from a single scan.
+- **Honest availability.** A component lacking its required inputs is recorded as unavailable with a reason, never scored as zero. The partial score reweights the available components; coverage is the sum of available weights; a full score requires all six.
+- **The time series is an append-only ledger** at `<storeDir>/observations.json` (own schema `0.1`), one observation per manual scan — a derived artifact outside the locked snapshot schema, like clustering.
+- **Metric formulas are deterministic and monotone, versioned with the library.** Recalibrating any formula is a score-rule change requiring an approved PR.
+- **Connectors stay source-neutral and never fill `asset`.** The scan stage resolves mentions with the library's `resolveMentions` (rules version `1`, a deliberately small seed vocabulary). Extending the vocabulary is a versioned change.
+
 ## Publication policy
 
 - GitHub publication happens immediately after `bootstrap/repository-base` passes locally; the branch is pushed as `main`.

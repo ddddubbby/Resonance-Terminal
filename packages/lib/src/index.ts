@@ -291,4 +291,5 @@ export * from "./captures.js";
 export * from "./clustering.js";
 export * from "./connectors.js";
 export * from "./research-connectors.js";
+export * from "./scoring.js";
 export * from "./snapshot-store.js";
