@@ -29,7 +29,7 @@ A usable, crypto-only private alpha built publicly on GitHub that proves the com
 | 3C | `feat/research-connectors` | DefiLlama, RSS/Atom, GitHub connectors |
 | 3D | `feat/corpus-clustering` | Lexical pre-grouping and deduplication input for grouping |
 | 4A | `feat/partial-scoring` | Time-series metrics, cold start, coverage, full/partial scores; components attach to narratives, not scans |
-| 4B | `feat/agent-research-workflow` | Evidence packs and narrative research protocol |
+| 4B | `feat/agent-research-workflow` | Evidence packs and narrative research protocol (`docs/PROTOCOL.md`) |
 | 4C | `feat/cli-scan-workflow` | Scan, candidates, status, promotion, JSON output |
 | 5 | `feat/agent-install-and-handoff` | One-command installation and Codex/Claude handoff |
 | 6 | `test/private-alpha-e2e` | Complete workflow integration and live smoke |
