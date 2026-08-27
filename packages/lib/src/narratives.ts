@@ -125,3 +125,28 @@ export function applyGrouping(storeDir: string, record: GroupingRecord): Groupin
   }
   return { allocated, matched };
 }
+
+/**
+ * A copy of the grouping record with allocated narrative ids attached to the
+ * groups that did not match existing narratives. The allocation order mirrors
+ * the order of unmatched groups in the record, exactly as
+ * {@link applyGrouping} wrote them into the ledger, so this derivation is
+ * deterministic. Use it to feed evidence packs and observations after
+ * applying a grouping record.
+ */
+export function withAllocatedNarrativeIds(
+  record: GroupingRecord,
+  application: GroupingApplication,
+): GroupingRecord {
+  const queue = [...application.allocated];
+  return {
+    ...record,
+    groups: record.groups.map((group) => {
+      if (group.narrativeId !== undefined) {
+        return group;
+      }
+      const next = queue.shift();
+      return next === undefined ? group : { ...group, narrativeId: next };
+    }),
+  };
+}

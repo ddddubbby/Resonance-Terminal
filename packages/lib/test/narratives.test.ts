@@ -9,6 +9,7 @@ import {
   GroupingError,
   type GroupingRecord,
   readNarratives,
+  withAllocatedNarrativeIds,
 } from "../src/index.js";
 
 function record(
@@ -95,5 +96,29 @@ describe("applyGrouping", () => {
 
   it("returns an empty ledger for a fresh store", () => {
     expect(readNarratives(freshStore())).toEqual([]);
+  });
+});
+
+describe("withAllocatedNarrativeIds", () => {
+  it("attaches allocated ids to unmatched groups in record order", () => {
+    const store = freshStore();
+    const rec = record("run-1", [group("g000", "aaaaaaaaaaaa"), group("g001", "bbbbbbbbbbbb")]);
+    const result = applyGrouping(store, rec);
+    const derived = withAllocatedNarrativeIds(rec, result);
+    expect(derived.groups[0]?.narrativeId).toBe("n0001");
+    expect(derived.groups[1]?.narrativeId).toBe("n0002");
+    expect(rec.groups[0]?.narrativeId).toBeUndefined();
+  });
+
+  it("keeps matched ids and skips surplus allocations safely", () => {
+    const store = freshStore();
+    applyGrouping(store, record("run-1", [group("g000", "aaaaaaaaaaaa")]));
+    const rec = record("run-2", [
+      group("g000", "cccccccccccc", "n0001"),
+      group("g001", "dddddddddddd"),
+    ]);
+    const derived = withAllocatedNarrativeIds(rec, applyGrouping(store, rec));
+    expect(derived.groups[0]?.narrativeId).toBe("n0001");
+    expect(derived.groups[1]?.narrativeId).toBe("n0002");
   });
 });
