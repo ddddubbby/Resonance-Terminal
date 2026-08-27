@@ -73,13 +73,21 @@ The `feat/corpus-clustering` branch (PR #6) delivered stage three of the scan li
 - Lexical clustering is demoted to deduplication and context reduction; the merged module keeps this role.
 - Event grouping is agent-side in v1, with written rationale and model/rules stamps — interpretation recorded as interpretation.
 - An explicit event-to-theme layer owns narrative identity across runs (superseding run-local clusters), and the corpus accumulates across runs.
-- The pushed-but-unmerged `feat/partial-scoring` branch is held for rework: gate, ledger, coverage, and weight machinery carry over; scored observations change from scan-level to narrative-level.
+
+## Current state: narrative-level scoring
+
+The reworked `feat/partial-scoring` branch (PR #8) delivered stage four under that direction:
+
+- `grouping.ts`: the agent-side grouping step's record shapes (`<runDir>/grouping.json`, own schema 0.1, written rationale, model/rules stamp, one-event membership per document) and `preGroupHints()` — the clustering module in its demoted context-reduction role.
+- `narratives.ts`: the event-to-theme layer. `<storeDir>/narratives.json` holds stable narrative identities (`n0001`…) with deterministic library-side allocation, agent-side matching, and established/lastSeen run tracking.
+- Narrative-level partial scoring: one `NarrativeObservation` per narrative per scan (`<storeDir>/observations.json`), the cold-start gate applied per narrative series, the six locked weights, honest availability, explicit coverage — a full score requires all six components.
+- End-to-end smoke on the spike corpus: 37 lexical hints, identities allocated and matched across runs, the gate opening at coverage 1.00 with every component honestly reported.
 
 ## What does not exist yet
 
-- All five fixed connector families and the clustering stage are merged; no scoring, no research workflow, no installer, no handoff yet.
+- All five fixed connector families, the clustering stage, and narrative-level scoring are merged; no research workflow, no installer, no handoff yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, and the narrative-granularity direction are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, and narrative-level partial scoring are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
