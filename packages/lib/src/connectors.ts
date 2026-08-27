@@ -1,9 +1,9 @@
 /**
- * Market connectors: Binance and Coinbase spot.
+ * HTTP connector plumbing and market connectors: Binance and Coinbase spot.
  *
- * Connectors are transport-level: they fetch one public endpoint, parse JSON,
- * and report a locked {@link ConnectorResult}. They never throw on source
- * failures; every outcome is a recorded result. Interpretation of payloads
+ * Connectors are transport-level: they fetch one public endpoint and report
+ * a locked {@link ConnectorResult}. They never throw on source failures;
+ * every outcome is a recorded result. Interpretation of payloads
  * (normalization into documents) belongs to later lifecycle stages.
  *
  * The fetch implementation is injectable so tests run fully offline.
@@ -23,9 +23,11 @@ export interface HttpConnectorOptions {
   readonly fetcher?: FetchFn;
   /** Request budget in milliseconds. */
   readonly timeoutMs?: number;
+  /** Extra request headers; override the defaults when keys collide. */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
-/** A connector result plus the raw JSON payload when the fetch succeeded. */
+/** A connector result plus the raw payload when the fetch succeeded. */
 export interface RawCapture {
   readonly connectorId: string;
   readonly url: string;
@@ -34,7 +36,7 @@ export interface RawCapture {
   readonly error?: string;
   /** ISO-8601 fetch time. */
   readonly fetchedAt: string;
-  /** Parsed JSON payload; present exactly when `ok` is true. */
+  /** Raw payload (parsed JSON or body text); present exactly when `ok` is true. */
   readonly payload?: unknown;
 }
 
@@ -58,11 +60,12 @@ export function toConnectorResult(capture: RawCapture, kind: Connector["kind"]):
   };
 }
 
-/** Shared HTTP fetch: one GET, JSON parse, recorded outcome, no throws. */
-async function fetchJson(
+/** Shared HTTP fetch: one GET, recorded outcome, no throws. */
+async function fetchCore(
   connectorId: string,
   url: string,
   options: HttpConnectorOptions,
+  read: (response: Response) => Promise<unknown>,
 ): Promise<RawCapture> {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -70,7 +73,7 @@ async function fetchJson(
   try {
     const response = await fetcher(url, {
       signal: AbortSignal.timeout(timeoutMs),
-      headers: { "user-agent": "resonance-terminal/0.0.0" },
+      headers: { "user-agent": "resonance-terminal/0.0.0", ...options.headers },
     });
     if (!response.ok) {
       return {
@@ -82,12 +85,30 @@ async function fetchJson(
         error: `HTTP ${response.status}`,
       };
     }
-    const payload: unknown = await response.json();
+    const payload = await read(response);
     return { connectorId, url, ok: true, status: response.status, fetchedAt, payload };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { connectorId, url, ok: false, fetchedAt, error: message };
   }
+}
+
+/** Fetch one endpoint and parse the body as JSON. */
+export function fetchJsonCapture(
+  connectorId: string,
+  url: string,
+  options: HttpConnectorOptions = {},
+): Promise<RawCapture> {
+  return fetchCore(connectorId, url, options, (response) => response.json());
+}
+
+/** Fetch one endpoint and keep the body as text (e.g. RSS/Atom XML). */
+export function fetchTextCapture(
+  connectorId: string,
+  url: string,
+  options: HttpConnectorOptions = {},
+): Promise<RawCapture> {
+  return fetchCore(connectorId, url, options, (response) => response.text());
 }
 
 /**
@@ -105,7 +126,7 @@ export class BinanceSpotConnector implements CapturingConnector {
   constructor(private readonly options: HttpConnectorOptions = {}) {}
 
   async fetchCapture(): Promise<RawCapture> {
-    return fetchJson(this.id, BinanceSpotConnector.url, this.options);
+    return fetchJsonCapture(this.id, BinanceSpotConnector.url, this.options);
   }
 
   async fetch(): Promise<ConnectorResult> {
@@ -122,7 +143,7 @@ export class CoinbaseSpotConnector implements CapturingConnector {
   constructor(private readonly options: HttpConnectorOptions = {}) {}
 
   async fetchCapture(): Promise<RawCapture> {
-    return fetchJson(this.id, CoinbaseSpotConnector.url, this.options);
+    return fetchJsonCapture(this.id, CoinbaseSpotConnector.url, this.options);
   }
 
   async fetch(): Promise<ConnectorResult> {
