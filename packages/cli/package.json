@@ -17,7 +17,7 @@
     "@resonance/lib": "workspace:*"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node ../../scripts/make-bin-executable.mjs",
+    "build": "tsc -p tsconfig.json && node ../../scripts/bundle-cli.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.test.json"
   }
 }

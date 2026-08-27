@@ -30,7 +30,7 @@ A usable, crypto-only private alpha built publicly on GitHub that proves the com
 | 3D | `feat/corpus-clustering` | Lexical pre-grouping and deduplication input for grouping |
 | 4A | `feat/partial-scoring` | Time-series metrics, cold start, coverage, full/partial scores; components attach to narratives, not scans |
 | 4B | `feat/agent-research-workflow` | Evidence packs and narrative research protocol (`docs/PROTOCOL.md`) |
-| 4C | `feat/cli-scan-workflow` | Scan, candidates, status, promotion, JSON output |
+| 4C | `feat/cli-scan-workflow` | Scan, candidates, status, promotion, JSON output; lib normalize/scan/promotions |
 | 5 | `feat/agent-install-and-handoff` | One-command installation and Codex/Claude handoff |
 | 6 | `test/private-alpha-e2e` | Complete workflow integration and live smoke |
 | 7 | `release/v0.1.0-alpha.1` | Soak results, status, version, tag |
@@ -84,6 +84,17 @@ Recorded with the reworked `feat/partial-scoring`, under the approved scoring di
 - **Grouping records are run-local derived views** at `<runDir>/grouping.json` (own schema `0.1`): agent-produced event groups with written rationale and a model/rules stamp, one-event membership per document. The narrative ledger lives at `<storeDir>/narratives.json` (own schema `0.1`); identity allocation is deterministic and library-side, matching a group to an existing narrative is agent-side interpretation.
 - **Metric formulas are deterministic and monotone, versioned with the library.** Recalibrating any formula is a score-rule change requiring an approved PR.
 - **Connectors stay source-neutral and never fill `asset`.** The scan stage resolves mentions with the library's `resolveMentions` (rules version `1`, a deliberately small seed vocabulary). Extending the vocabulary is a versioned change.
+
+## CLI workflow decisions
+
+Recorded with `feat/cli-scan-workflow`. Implementation policy; it does not redefine the locked snapshot schema, exit codes, or the research protocol:
+
+- **A scan is fetch, normalize, snapshot, cluster — nothing more.** Grouping stays agent-side per the protocol; the CLI never writes grouping records or observations.
+- **The run directory is the snapshot directory.** Snapshots live at `<storeDir>/<runId>/snapshot.json`, so raw captures (`raw/`), clustering (`clusters.json`), grouping (`grouping.json`), and evidence (`evidence/`) all sit beside the snapshot. The default store is `.resonance`; `--store` overrides.
+- **Exit semantics reuse the locked contract.** `0` clean scan; `2` degraded (some connectors failed but the snapshot was written); `1` error (nothing usable). Every command answers `--json` with the same data as its human-readable output.
+- **Normalization rebuilds the spike's rules on the locked identity.** Document identity is the locked content hash, deduplication the locked rules; structured numbers stay in the text. Mover screening is exported separately (`screenMovers`) as the `movers` input for scoring.
+- **Candidates read what exists, honestly.** `candidates` requires a grouping record for the run; without one it says so. Identity allocation is rederived deterministically (`withAllocatedNarrativeIds`) so on-disk records predating allocation still resolve.
+- **Promotion is an operator decision, not a score threshold.** `<storeDir>/promotions.json` (own schema `0.1`) is append-only, one promotion per narrative, validated against the narrative ledger.
 
 ## Publication policy
 

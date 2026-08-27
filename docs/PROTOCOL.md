@@ -15,10 +15,12 @@ protocol.
 
 For one scan with `runId` against a store at `<storeDir>`:
 
-1. The snapshot at `<storeDir>/snapshots/<runId>/snapshot.json` — the locked,
+1. The snapshot at `<storeDir>/<runId>/snapshot.json` — the locked,
    immutable corpus of the scan. Textual kinds (`news`, `release`) are the
    grouping corpus; structured kinds (`market`, `tvl`, and the alpha-signal
-   kinds when captured) feed metrics, never grouping.
+   kinds when captured) feed metrics, never grouping. The run directory for
+   a scan is its snapshot directory: raw captures, clustering, grouping,
+   and evidence all live beside `snapshot.json`.
 2. `preGroupHints(documents)` — the clustering module in its demoted role:
    lexical hints (multi-document clusters only, with top terms), treated as
    context reduction, never as decisions.
@@ -29,7 +31,7 @@ For one scan with `runId` against a store at `<storeDir>`:
 
 The agent reads the textual documents of the snapshot, optionally consuming
 the pre-group hints, and writes a grouping record to
-`<storeDir>/runs/<runId>/grouping.json` via `writeGrouping`.
+`<storeDir>/<runId>/grouping.json` via `writeGrouping`.
 
 Rules:
 
@@ -72,7 +74,7 @@ narrative per run, enforced.
 
 ## Step 4 — Evidence packs (deterministic)
 
-`writeEvidencePacks` renders `<storeDir>/runs/<runId>/evidence/` from the
+`writeEvidencePacks` renders `<storeDir>/<runId>/evidence/` from the
 id-attached grouping record: one pack per grouped narrative (identity, theme,
 groups with rationale, bounded excerpts, the partial score when available)
 plus three reference sheets (market, TVL, alpha signals) and an index. Every
