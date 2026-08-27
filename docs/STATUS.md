@@ -58,11 +58,19 @@ The `feat/research-connectors` branch (PR #5) added the last three of the five f
 - Robinhood Chain has no machine-readable public channel (closed-infra Arbitrum Orbit L2, no RSS); its momentum signal arrives via DefiLlama, which lists the chain and its protocols, plus the Arbitrum stack repos in the list.
 - Live smoke: 19/19 research endpoints ok, including 129 protocols deployed on Robinhood Chain in the DefiLlama capture.
 
+## Current state: corrected corpus clustering
+
+The `feat/corpus-clustering` branch (PR #6) delivered stage three of the scan lifecycle in `@resonance/lib`, correcting the four measured defects of the spike prototype:
+
+- Exact cosine against term-sum centroids (the spike's centroids inflated to norm 1.248), news/release-only corpus (structured kinds feed metrics), numeric tokens bucketed like `0x` addresses, and threshold recalibrated to 0.16 on the spike corpus.
+- Cross-source cluster share rose from the spike baseline of 41.7% / 11.9% to 75.7% of multi-doc clusters and 16.8% of all clusters; `crossSourceShare()` ships as the reusable resonance metric.
+- Clusters are run-local derived views, persisted as `<runDir>/clusters.json` with versioned configuration embedded; the locked snapshot schema is untouched. DESIGN.md records the stage-three decisions (run-local identity, deterministic versus stable).
+
 ## What does not exist yet
 
-- All five fixed connector families are merged; no clustering, no scoring, no research workflow, no installer, no handoff yet.
+- All five fixed connector families and the clustering stage are merged; no scoring, no research workflow, no installer, no handoff yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, and all five fixed connector families are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, and the clustering stage are merged; no scored candidates or repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
