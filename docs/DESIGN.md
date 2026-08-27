@@ -27,8 +27,8 @@ A usable, crypto-only private alpha built publicly on GitHub that proves the com
 | 3A | `feat/canonical-snapshots` | Git-tracked snapshots, deduplication, schema versioning |
 | 3B | `feat/market-connectors` | Binance and Coinbase market connectors |
 | 3C | `feat/research-connectors` | DefiLlama, RSS/Atom, GitHub connectors |
-| 3D | `feat/corpus-clustering` | TF-IDF, cosine similarity, preliminary clusters |
-| 4A | `feat/partial-scoring` | Time-series metrics, cold start, coverage, full/partial scores |
+| 3D | `feat/corpus-clustering` | Lexical pre-grouping and deduplication input for grouping |
+| 4A | `feat/partial-scoring` | Time-series metrics, cold start, coverage, full/partial scores; components attach to narratives, not scans |
 | 4B | `feat/agent-research-workflow` | Evidence packs and narrative research protocol |
 | 4C | `feat/cli-scan-workflow` | Scan, candidates, status, promotion, JSON output |
 | 5 | `feat/agent-install-and-handoff` | One-command installation and Codex/Claude handoff |
@@ -48,7 +48,7 @@ Branches in the same numbered wave may run in parallel. Later waves must not beg
 | Market Confirmation | 10% |
 | Investability | 10% |
 
-Rules: every manual scan adds a time-series observation; attention-derived components stay unavailable until three successful scans span at least seven calendar days; available components are reweighted into a partial score with explicit coverage; full scores require every component.
+Rules: every manual scan adds a time-series observation; attention-derived components stay unavailable until three successful scans span at least seven calendar days; available components are reweighted into a partial score with explicit coverage; full scores require every component. Components attach to narratives (see the narrative granularity section); scan-level observations are interim infrastructure, not the scored unit.
 
 ## Contract status
 
@@ -62,14 +62,16 @@ The contracts below were proven by `spike/ten-real-candidates` and are **locked*
 - **Snapshot schema** — version `0.1`: `schemaVersion`, `runId`, `createdAt`, one connector result per attempted connector (successes and recorded failures), and the deduplicated documents.
 - **Connectors** — `id`, `kind` (`market`, `tvl`, `feed`, `repo`, `positioning`, `stablecoin`), and a `fetch` returning a recorded result. Raw-capture persistence belongs to the snapshot layer, not the connector.
 
-## Clustering stage decisions
+## Narrative granularity
 
-Recorded with the approved revised scope of `feat/corpus-clustering`. These are stage-three policy, not locked schema:
+Supersedes the earlier "Clustering stage decisions". Measured on the spike corpus (240 textual documents, 28,680 pairs, re-audited on the shipped implementation): 99.6% of pairs score below 0.16; the 106 pairs above threshold show 100% same-event precision at the top, all proper-noun-driven events (a licensing win, a protocol incident, a flow report). Lexical similarity captures genuine cross-source events yet is structurally blind to paraphrased same-event coverage, and 7 independent feeds in one fetch mostly cover different stories. Recorded as stage policy, not locked schema:
 
-- **Clusters are run-local.** `c000` in one run is unrelated to `c000` in another. Greedy clustering is order-sensitive and each scan clusters independently, so narrative identity across runs is owned by stage four, not by cluster ids.
-- **Deterministic is not stable.** Same input under the same configuration yields the same output (traceable), but a different document order yields different clusters (not comparable across runs). These are documented as two separate properties.
-- **Clustering output is a derived view, not part of the locked snapshot schema.** It persists as `<runDir>/clusters.json` with its versioned configuration embedded (stopwords, threshold, clustered kinds), so a configuration fix re-derives history without re-fetching. Changing that configuration rewrites all derived cluster output and is treated as scoring configuration.
-- **Only `news` and `release` documents are clustered.** The structured kinds (`market`, `mover`, `tvl`, `positioning`, `positioning-spot`, `stablecoin`) carry no text semantics and feed stage-four metrics directly.
+- **Lexical clustering is demoted to deduplication and context reduction.** It is a high-precision pre-grouping pass feeding the grouping step, never the narrative decision-maker. The merged module keeps this role; do not tune its threshold as if it governed narrative identity.
+- **Event grouping is agent-side in v1.** The grouping step reads the textual corpus with the lexical pre-groups as hints and produces groups with written rationale, stamped with model and rules version. Interpretation is recorded as interpretation; determinism is not objectivity, and a hardcoded threshold is a judgment call wearing a lab coat — the accountable form states its reasoning.
+- **The event-to-theme bridge is an explicit layer, not an emergent property.** The product sells themes spanning weeks and many non-overlapping events; stage three produces events. Narrative identity persists across runs in this layer. This supersedes the run-local cluster decision: cluster ids stay run-local, but narrative identity must not be.
+- **The corpus accumulates across runs.** Same-event overlap inside one fetch is too sparse to measure resonance (~28 genuine cross-source pairs among 28,680). Grouping and theme matching operate over an accumulating window; per-scan independent clustering is retired.
+- **Only `news` and `release` documents participate in grouping.** The structured kinds (`market`, `mover`, `tvl`, `positioning`, `positioning-spot`, `stablecoin`) carry no text semantics and feed metrics directly.
+- **Reproducibility restated.** The lexical pass stays deterministic (same input, same output, traceable). Agent grouping and narrative identity are versioned interpretations: reproducible by record (inputs, model, rules version, rationale), not bit-stable.
 
 ## Scoring stage decisions
 
