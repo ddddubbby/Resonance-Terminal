@@ -83,11 +83,19 @@ The reworked `feat/partial-scoring` branch (PR #8) delivered stage four under th
 - Narrative-level partial scoring: one `NarrativeObservation` per narrative per scan (`<storeDir>/observations.json`), the cold-start gate applied per narrative series, the six locked weights, honest availability, explicit coverage — a full score requires all six components.
 - End-to-end smoke on the spike corpus: 37 lexical hints, identities allocated and matched across runs, the gate opening at coverage 1.00 with every component honestly reported.
 
+## Current state: the research workflow
+
+The `feat/agent-research-workflow` branch (PR #9) delivered stage four's protocol layer:
+
+- `research.ts`: evidence packs (one per grouped narrative — identity, theme, groups with written rationale, bounded excerpts, an untrusted-data warning, the partial score when available) plus market/TVL/alpha-signal reference sheets and `writeEvidencePacks` into `<runDir>/evidence/`.
+- `withAllocatedNarrativeIds`: the deterministic bridge reattaching allocated narrative identities to unmatched groups after ledger application.
+- `docs/PROTOCOL.md`: the normative five-step scan record — grouping as agent-side interpretation (rationale, model/rules stamps), identity allocation, observation, evidence, and scoring as deterministic; failure modes; and the reproducibility split (bit-stable artifacts vs versioned interpretations).
+
 ## What does not exist yet
 
-- All five fixed connector families, the clustering stage, and narrative-level scoring are merged; no research workflow, no installer, no handoff yet.
+- All five fixed connector families, the clustering stage, narrative-level scoring, and the research workflow are merged; no CLI scan workflow, no installer, no handoff yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, and narrative-level partial scoring are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, and the research workflow are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
