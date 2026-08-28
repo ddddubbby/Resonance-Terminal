@@ -91,11 +91,21 @@ The `feat/agent-research-workflow` branch (PR #9) delivered stage four's protoco
 - `withAllocatedNarrativeIds`: the deterministic bridge reattaching allocated narrative identities to unmatched groups after ledger application.
 - `docs/PROTOCOL.md`: the normative five-step scan record — grouping as agent-side interpretation (rationale, model/rules stamps), identity allocation, observation, evidence, and scoring as deterministic; failure modes; and the reproducibility split (bit-stable artifacts vs versioned interpretations).
 
+## Current state: the CLI scan workflow
+
+The `feat/cli-scan-workflow` branch (PR #10) delivered stage 4C — the terminal's operator workflow behind the packed CLI:
+
+- `normalize.ts`: the spike's proven normalization rules rebuilt on the locked contracts — RSS/Atom extraction, HTML stripping, per-connector document builders, mover screening for scoring, and deduplication via the locked contentHash.
+- `scan.ts`: one scan = fetch → normalize → snapshot → cluster. The run directory is the snapshot directory, so `raw/`, `clusters.json`, `grouping.json`, and `evidence/` sit beside `snapshot.json`. Locked exit semantics: `0` clean, `2` degraded (snapshot written, a connector failed), `1` when no documents.
+- `promotions.ts`: an append-only promotion ledger — promotion is an operator decision recorded in a ledger, never a score threshold.
+- CLI commands `scan`/`candidates`/`status`/`promote` with `--store` and `--json`; `candidates` rederives allocated narrative identities deterministically and reports honest availability. Grouping stays agent-side per the protocol; the CLI never writes grouping records or observations.
+- Build change: the packed CLI is esbuild-bundled into a single `dist/index.js` (with shebang) because the tarball smoke check runs from an isolated temp directory; tsc still gates the build.
+
 ## What does not exist yet
 
-- All five fixed connector families, the clustering stage, narrative-level scoring, and the research workflow are merged; no CLI scan workflow, no installer, no handoff yet.
+- All five fixed connector families, the clustering stage, narrative-level scoring, the research workflow, and the CLI scan workflow are merged; no installer/handoff, no end-to-end alpha test, no release yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, and the research workflow are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, the research workflow, and the CLI scan workflow are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
