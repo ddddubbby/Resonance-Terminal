@@ -26,13 +26,15 @@
  * (`<storeDir>/observations.json`); scoring state is a derived artifact,
  * not part of the locked snapshot schema.
  *
- * Mention resolution lives here too: connectors stay source-neutral and do
- * not fill `asset`, so the scan stage resolves mentions with
- * {@link resolveMentions} (rules version {@link MENTION_RULES_VERSION}).
+ * Mention resolution lives in `assets.ts`: connectors stay source-neutral and
+ * do not fill `asset` for textual kinds, so the scan stage resolves mentions
+ * against a snapshot-derived asset index. Every component here compares
+ * canonical uppercase tickers.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildAssetIndex, resolveMentions, TEXTUAL_KINDS } from "./assets.js";
 import type { SourceDocument } from "./index.js";
 import { canonicalJsonString } from "./snapshot-store.js";
 
@@ -139,59 +141,11 @@ export function coldStartSatisfied(
 // ---------------------------------------------------------------------------
 
 /**
- * Mention resolution rules, versioned. Connectors do not fill `asset` (they
- * stay source-neutral); the scan stage resolves mentions. `resolveMentions`
- * is the canonical implementation, used in production scans and tests alike.
+ * Mention resolution moved to `assets.ts`, where the vocabulary is derived
+ * from the snapshot instead of declared as a literal. `MENTION_RULES_VERSION`,
+ * `resolveMention`, and `resolveMentions` are re-exported by the package
+ * index from there; this module consumes them.
  */
-export const MENTION_RULES_VERSION = "1";
-
-const KNOWN_ASSETS_V1: readonly string[] = [
-  "bitcoin",
-  "btc",
-  "ethereum",
-  "eth",
-  "solana",
-  "sol",
-  "clarity",
-  "genesis",
-  "clankster",
-];
-
-const TEXTUAL_KINDS = new Set(["news", "release"]);
-
-/**
- * Resolve asset mentions of one textual document against a known-asset
- * vocabulary. Returns the first match or `undefined`. The vocabulary is a
- * seed, not the product's asset universe; extending it is a deliberate,
- * versioned change.
- */
-export function resolveMention(
-  document: Pick<SourceDocument, "kind" | "title" | "text">,
-  assets: readonly string[] = KNOWN_ASSETS_V1,
-): string | undefined {
-  if (!TEXTUAL_KINDS.has(document.kind)) {
-    return undefined;
-  }
-  const haystack = `${document.title} ${document.text}`.toLowerCase();
-  return assets.find((asset) => haystack.includes(asset.toLowerCase()));
-}
-
-/**
- * Attach resolved mentions to a document set, keeping originals that already
- * carry an `asset`. Deterministic, source-neutral, side-effect free.
- */
-export function resolveMentions(
-  documents: readonly SourceDocument[],
-  assets: readonly string[] = KNOWN_ASSETS_V1,
-): SourceDocument[] {
-  return documents.map((document) => {
-    if (document.asset !== undefined) {
-      return document;
-    }
-    const asset = resolveMention(document, assets);
-    return asset === undefined ? document : { ...document, asset };
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Observation builder
@@ -215,8 +169,12 @@ export interface NarrativeObservationInput {
  * movers (which live in raw captures) are supplied by the caller.
  */
 export function buildNarrativeObservation(input: NarrativeObservationInput): NarrativeObservation {
-  const narrativeDocs = resolveMentions(input.narrativeDocuments);
-  const corpus = resolveMentions(input.corpus);
+  // The vocabulary comes from the whole scan, never from the narrative's own
+  // documents: a narrative holds only textual kinds, so an index built from
+  // them would have an empty tradeable universe and resolve nothing.
+  const index = buildAssetIndex(input.corpus);
+  const narrativeDocs = resolveMentions(input.narrativeDocuments, index);
+  const corpus = resolveMentions(input.corpus, index);
   const assetsMentioned = [
     ...new Set(narrativeDocs.map((d) => d.asset).filter((a) => a !== undefined)),
   ].sort();
@@ -343,8 +301,11 @@ function marketConfirmationScore(latest: NarrativeObservation): ComponentResult 
   if (latest.movers.length === 0 || latest.assetsMentioned.length === 0) {
     return unavailable("marketConfirmation", "missing-input");
   }
-  const mentioned = new Set(latest.assetsMentioned);
-  const confirming = latest.movers.filter((m) => mentioned.has(m.asset)).length;
+  // Both sides are canonical uppercase tickers since mention rules 2; the
+  // normalization here keeps the comparison correct for observations written
+  // by earlier rules rather than silently scoring them zero.
+  const mentioned = new Set(latest.assetsMentioned.map((a) => a.toUpperCase()));
+  const confirming = latest.movers.filter((m) => mentioned.has(m.asset.toUpperCase())).length;
   return available("marketConfirmation", clamp01(confirming / 3));
 }
 
@@ -354,8 +315,8 @@ function investabilityScore(latest: NarrativeObservation): ComponentResult {
   if (latest.assetsMentioned.length === 0) {
     return unavailable("investability", "missing-input");
   }
-  const listed = new Set(latest.marketAssets);
-  const investable = latest.assetsMentioned.filter((a) => listed.has(a)).length;
+  const listed = new Set(latest.marketAssets.map((a) => a.toUpperCase()));
+  const investable = latest.assetsMentioned.filter((a) => listed.has(a.toUpperCase())).length;
   return available("investability", investable / latest.assetsMentioned.length);
 }
 
