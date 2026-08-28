@@ -17,6 +17,14 @@ export type FetchFn = typeof fetch;
 /** Default request budget for connector fetches. */
 export const DEFAULT_TIMEOUT_MS = 20_000;
 
+/**
+ * Default response body budget shared by every HTTP connector (16 MiB).
+ * The largest measured alpha endpoint is DefiLlama's protocol list at
+ * roughly 8.7 MB; the budget leaves headroom without exposing the scan
+ * to oversized or decompression-bomb responses.
+ */
+export const DEFAULT_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+
 /** Options shared by the HTTP connectors. */
 export interface HttpConnectorOptions {
   /** Injectable fetch; defaults to the global `fetch`. */
@@ -25,6 +33,8 @@ export interface HttpConnectorOptions {
   readonly timeoutMs?: number;
   /** Extra request headers; override the defaults when keys collide. */
   readonly headers?: Readonly<Record<string, string>>;
+  /** Response body budget in bytes; defaults to {@link DEFAULT_MAX_RESPONSE_BYTES}. */
+  readonly maxResponseBytes?: number;
 }
 
 /** A connector result plus the raw payload when the fetch succeeded. */
@@ -60,7 +70,47 @@ export function toConnectorResult(capture: RawCapture, kind: Connector["kind"]):
   };
 }
 
-/** Shared HTTP fetch: one GET, recorded outcome, no throws. */
+/**
+ * Read a response body with a hard byte budget, counted on the decompressed
+ * stream. Fails fast on a trustworthy Content-Length, and cancels the body
+ * reader the moment the streamed total exceeds the limit.
+ */
+async function readBoundedBody(response: Response, maxBytes: number): Promise<Uint8Array> {
+  const declared = response.headers.get("content-length");
+  if (declared !== null) {
+    const declaredBytes = Number(declared);
+    if (Number.isInteger(declaredBytes) && declaredBytes > maxBytes) {
+      throw new Error(`response declared ${declaredBytes} bytes, over the ${maxBytes} byte limit`);
+    }
+  }
+  if (response.body === null) {
+    return new Uint8Array(0);
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    received += value.length;
+    if (received > maxBytes) {
+      await reader.cancel();
+      throw new Error(`response exceeded the ${maxBytes} byte limit`);
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return body;
+}
+
+/** Shared HTTP fetch: one GET, recorded outcome, no throws on source failures. */
 async function fetchCore(
   connectorId: string,
   url: string,
@@ -69,12 +119,20 @@ async function fetchCore(
 ): Promise<RawCapture> {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+  if (!Number.isInteger(maxResponseBytes) || maxResponseBytes <= 0) {
+    throw new Error(
+      `maxResponseBytes must be a positive integer (got ${String(maxResponseBytes)})`,
+    );
+  }
   const fetchedAt = new Date().toISOString();
+  let status: number | undefined;
   try {
     const response = await fetcher(url, {
       signal: AbortSignal.timeout(timeoutMs),
       headers: { "user-agent": "resonance-terminal/0.0.0", ...options.headers },
     });
+    status = response.status;
     if (!response.ok) {
       return {
         connectorId,
@@ -89,26 +147,41 @@ async function fetchCore(
     return { connectorId, url, ok: true, status: response.status, fetchedAt, payload };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { connectorId, url, ok: false, fetchedAt, error: message };
+    return {
+      connectorId,
+      url,
+      ok: false,
+      ...(status === undefined ? {} : { status }),
+      fetchedAt,
+      error: message,
+    };
   }
 }
 
-/** Fetch one endpoint and parse the body as JSON. */
+/** Fetch one endpoint and parse the body as JSON, within the byte budget. */
 export function fetchJsonCapture(
   connectorId: string,
   url: string,
   options: HttpConnectorOptions = {},
 ): Promise<RawCapture> {
-  return fetchCore(connectorId, url, options, (response) => response.json());
+  return fetchCore(connectorId, url, options, async (response) => {
+    const maxBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    const body = await readBoundedBody(response, maxBytes);
+    return JSON.parse(new TextDecoder().decode(body));
+  });
 }
 
-/** Fetch one endpoint and keep the body as text (e.g. RSS/Atom XML). */
+/** Fetch one endpoint and keep the body as text (e.g. RSS/Atom XML), within the byte budget. */
 export function fetchTextCapture(
   connectorId: string,
   url: string,
   options: HttpConnectorOptions = {},
 ): Promise<RawCapture> {
-  return fetchCore(connectorId, url, options, (response) => response.text());
+  return fetchCore(connectorId, url, options, async (response) => {
+    const maxBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    const body = await readBoundedBody(response, maxBytes);
+    return new TextDecoder().decode(body);
+  });
 }
 
 /**

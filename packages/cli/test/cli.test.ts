@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -248,6 +248,43 @@ describe("candidates", () => {
     expect(await run(["candidates", "--store", store, "--json"])).toBe(0);
     const parsed = JSON.parse(output(jsonCapture.stdout)) as { candidates: unknown[] };
     expect(parsed.candidates.length).toBe(1);
+  });
+
+  it("rejects traversal-shaped run ids with exit 1 and never reads outside the store", async () => {
+    const root = freshStore();
+    const store = join(root, "store");
+    const doc = makeDocument(
+      {
+        sourceId: "rss-coindesk",
+        kind: "news",
+        url: "https://example.com/guard",
+        title: "Guard fixture",
+        text: "Guard fixture text.",
+      },
+      "2026-08-27T12:00:00.000Z",
+    );
+    writeSnapshot(store, {
+      schemaVersion: "0.1",
+      runId: "run-1",
+      createdAt: "2026-08-27T12:00:00.000Z",
+      connectors: [],
+      documents: [doc],
+    });
+    // Sibling sentinel: only reachable if the run id escapes the store.
+    const siblingDir = join(root, "sibling");
+    mkdirSync(siblingDir, { recursive: true });
+    writeFileSync(
+      join(siblingDir, "snapshot.json"),
+      JSON.stringify({ sentinel: "SENTINEL-LEAK" }),
+      "utf8",
+    );
+    for (const bad of ["../sibling", "/etc/passwd", "run/1"]) {
+      const cap = captureOutput();
+      expect(await run(["candidates", "--store", store, "--run", bad])).toBe(1);
+      expect(output(cap.stderr)).toContain("invalid run id");
+      expect(output(cap.stdout)).not.toContain("SENTINEL-LEAK");
+      vi.restoreAllMocks();
+    }
   });
 });
 

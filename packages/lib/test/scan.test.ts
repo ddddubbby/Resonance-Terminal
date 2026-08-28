@@ -2,9 +2,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { readCapture } from "../src/captures.js";
 import type { CapturingConnector, RawCapture } from "../src/connectors.js";
 import type { ConnectorResult } from "../src/index.js";
-import { listRuns, runIdAt, runScan } from "../src/scan.js";
+import { listRuns, runDirOf, runIdAt, runScan } from "../src/scan.js";
 
 const tmpDirs: string[] = [];
 function freshStore(): string {
@@ -73,6 +74,20 @@ describe("runIdAt and listRuns", () => {
   });
 });
 
+describe("runDirOf", () => {
+  it("resolves valid run ids inside the store", () => {
+    expect(runDirOf("/tmp/store", "2026-08-27T12-00-00")).toBe(
+      join("/tmp/store", "2026-08-27T12-00-00"),
+    );
+  });
+
+  it("rejects traversal-shaped run ids", () => {
+    for (const bad of ["../evil", "..", "/etc/passwd", "run/1", "a\\b", "", " "]) {
+      expect(() => runDirOf("/tmp/store", bad)).toThrow(/runId/);
+    }
+  });
+});
+
 describe("runScan", () => {
   it("writes captures, snapshot, and clusters for a clean scan", async () => {
     const store = freshStore();
@@ -117,5 +132,46 @@ describe("runScan", () => {
         now: FIXED_NOW,
       }),
     ).rejects.toThrow("produced no documents");
+  });
+
+  it("records a malformed HTTP-200 payload as a failure and stays degraded", async () => {
+    const store = freshStore();
+    const malformedBinance: RawCapture = {
+      ...goodCapture,
+      status: 200,
+      payload: [{ symbol: "BTCUSDT" }], // ticker rows miss the required fields
+    };
+    const validFeed: RawCapture = {
+      connectorId: "rss-test",
+      url: "https://example.com/feed.xml",
+      ok: true,
+      fetchedAt: "2026-08-27T12:00:00.000Z",
+      payload: `<rss><channel><item>
+        <title>Stablecoin payments grow</title>
+        <link>https://example.com/story</link>
+        <pubDate>Mon, 01 Jun 2026 08:00:00 GMT</pubDate>
+        <description>Details of the story.</description>
+      </item></channel></rss>`,
+    };
+    const summary = await runScan(store, {
+      connectors: [
+        new FakeConnector("binance-spot", malformedBinance),
+        new FakeConnector("rss-test", validFeed),
+      ],
+      now: FIXED_NOW,
+    });
+    // The snapshot was written from the valid connector's documents.
+    expect(existsSync(join(store, summary.runId, "snapshot.json"))).toBe(true);
+    expect(summary.documents).toBeGreaterThan(0);
+    expect(summary.degraded).toBe(true);
+    const binance = summary.connectors.find((c) => c.connectorId === "binance-spot");
+    expect(binance?.ok).toBe(false);
+    expect(binance?.status).toBe(200);
+    expect(binance?.error).toContain("invalid payload");
+    // The persisted raw capture keeps id/url/status/time but drops the payload.
+    const persisted = readCapture(summary.runDir, "binance-spot");
+    expect(persisted?.ok).toBe(false);
+    expect(persisted?.payload).toBeUndefined();
+    expect(persisted?.error).toContain("invalid payload");
   });
 });

@@ -14,12 +14,19 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { isSnapshot, SNAPSHOT_SCHEMA_VERSION, type Snapshot } from "./index.js";
+import {
+  contentHashOf,
+  docIdOf,
+  isSnapshot,
+  SNAPSHOT_SCHEMA_VERSION,
+  type Snapshot,
+} from "./index.js";
 
 /** Failure codes for snapshot store operations. */
 export type SnapshotStoreErrorCode =
   | "invalid-run-id"
   | "invalid-snapshot"
+  | "corrupted-snapshot"
   | "duplicate-documents"
   | "snapshot-exists"
   | "unsupported-schema";
@@ -36,12 +43,16 @@ export class SnapshotStoreError extends Error {
 }
 
 /** RunIds are timestamp slugs; this shape also keeps paths traversal-safe. */
-const RUN_ID_PATTERN = /^[0-9A-Za-z][0-9A-Za-z-]{0,63}$/;
+export const RUN_ID_PATTERN = /^[0-9A-Za-z][0-9A-Za-z-]{0,63}$/;
 
 /** Name of the snapshot file inside a run directory. */
 export const SNAPSHOT_FILE = "snapshot.json";
 
-function assertRunId(runId: string): void {
+/**
+ * Assert a runId is traversal-safe. Every path built from a runId must go
+ * through this check; callers joining runIds into paths must never skip it.
+ */
+export function assertRunId(runId: string): void {
   if (!RUN_ID_PATTERN.test(runId)) {
     throw new SnapshotStoreError(
       "invalid-run-id",
@@ -99,6 +110,30 @@ function assertDedupInvariants(snapshot: Snapshot): void {
 }
 
 /**
+ * Verify every document's identity fields against its content: the locked
+ * formula recomputes the SHA-256 over `sourceId|kind|url|title|text`, and
+ * both `contentHash` and `docId` must match it. Rejects forged or stale
+ * identity fields on write and post-write tampering on read.
+ */
+function assertContentIdentity(snapshot: Snapshot): void {
+  for (const doc of snapshot.documents) {
+    const expected = contentHashOf(doc);
+    if (doc.contentHash !== expected) {
+      throw new SnapshotStoreError(
+        "corrupted-snapshot",
+        `document ${doc.docId} of snapshot ${snapshot.runId} has contentHash ${doc.contentHash}; content recomputes to ${expected}`,
+      );
+    }
+    if (doc.docId !== docIdOf(expected)) {
+      throw new SnapshotStoreError(
+        "corrupted-snapshot",
+        `document of snapshot ${snapshot.runId} has docId ${doc.docId}; contentHash derives ${docIdOf(expected)}`,
+      );
+    }
+  }
+}
+
+/**
  * Write an immutable snapshot to `<storeDir>/<runId>/snapshot.json`.
  * Accepts `unknown` and validates the schema and dedup invariants at the
  * boundary; refuses to overwrite.
@@ -113,6 +148,7 @@ export function writeSnapshot(storeDir: string, candidate: unknown): string {
   const snapshot = candidate;
   assertRunId(snapshot.runId);
   assertDedupInvariants(snapshot);
+  assertContentIdentity(snapshot);
   const runDir = join(storeDir, snapshot.runId);
   const path = join(runDir, SNAPSHOT_FILE);
   if (existsSync(path)) {
@@ -153,6 +189,7 @@ export function readSnapshot(storeDir: string, runId: string): Snapshot | null {
       `snapshot ${runId} violates schema ${SNAPSHOT_SCHEMA_VERSION}`,
     );
   }
+  assertContentIdentity(parsed);
   return parsed;
 }
 

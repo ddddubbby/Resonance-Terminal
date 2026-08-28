@@ -226,7 +226,13 @@ function candidatesCommand(flags: Flags): ExitCode {
     err(`no runs found in store ${flags.store}; run 'resonance scan' first`);
     return EXIT_ERROR;
   }
-  const data = candidatesData(flags.store, runId);
+  let data: CandidateRow[] | string;
+  try {
+    data = candidatesData(flags.store, runId);
+  } catch {
+    err(`invalid run id "${runId}"; run ids are the slugs listed by 'resonance status'`);
+    return EXIT_ERROR;
+  }
   if (typeof data === "string") {
     out(data);
     return EXIT_OK;
