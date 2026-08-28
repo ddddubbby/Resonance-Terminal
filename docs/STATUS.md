@@ -109,11 +109,21 @@ The `feat/agent-install-and-handoff` branch (PR #11) delivered stage 5, closing 
 - `resonance handoff [--store DIR] [--json]`: the deterministic agent-to-agent handoff document — the canonical docs to read first, the store summary (runs, narratives, observations, promotions, latest-run completeness), the narrative table with honest scores, and the protocol reminders. It writes nothing; the receiving agent reads AGENTS.md, then the handoff text, then continues.
 - `docs/PROTOCOL.md` records the handoff protocol: the handoff document is a rendering of store state, never edited by hand, with disagreements resolved in the store's favor. README carries the truthful installation and command reference.
 
+## Current state: end-to-end integration and live smoke
+
+The `test/private-alpha-e2e` branch (PR #12) delivered stage 6 — proof that the complete protocol runs end-to-end on the merged pipeline:
+
+- `packages/cli/test/e2e.test.ts`: an offline integration suite wiring the full protocol (scan, agent-side grouping, narrative identity, observations, evidence packs, scoring, promotion, handoff) with two fake connectors (an RSS feed pair and the Binance tape) and an injected clock. Nothing else is stubbed.
+- Three scans span fifteen days, so the per-narrative cold-start gate (3 observations over >= 7 days) opens honestly inside the suite: attention components report `cold-start` before the gate, all six components are available after.
+- The CLI is exercised on top of the populated store: `status --json`, `candidates`, `promote`, `handoff`; run artifacts (`snapshot.json`, `grouping.json`, `clusters.json`, `raw/`, evidence packs) are asserted to sit beside their snapshot.
+- A live smoke (not committed) ran the same chain twice on real endpoints: 24/24 connectors ok per scan, 242 textual documents, 20 agent-grouped narratives with written rationale (`n0001`-`n0020`), 20 observations, 20 evidence packs, and the full CLI chain. Scoring is honest: marketConfirmation/investability score zero where the seed known-asset vocabulary has no overlap with screened movers - a known versioned limitation, not a defect.
+
 ## What does not exist yet
 
-- All five fixed connector families, the clustering stage, narrative-level scoring, the research workflow, the CLI scan workflow, and installation/agent handoff are merged; no end-to-end alpha test, no release yet.
+- All five fixed connector families, the clustering stage, narrative-level scoring, the research workflow, the CLI scan workflow, installation/agent handoff, and end-to-end integration are merged; no release yet.
+- The milestone's continuous soak (repeated scans across three or more days) is carried by the release stage; the merged suite covers the gate honestly with an injected clock.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, the research workflow, the CLI scan workflow, and installation/agent handoff are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, the research workflow, the CLI scan workflow, installation/agent handoff, and end-to-end integration are merged; next is the release. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
