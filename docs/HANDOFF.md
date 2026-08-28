@@ -4,7 +4,7 @@ This file carries the integration agent's current milestone state so a fresh ses
 
 ## Objective
 
-Milestone `v0.1.0-alpha.1` — a usable, crypto-only private alpha built publicly on GitHub — is released: tagged `v0.1.0-alpha.1` on `main` after all fourteen branches of the [DESIGN.md](DESIGN.md) sequence merged. What the milestone still owes is recorded below.
+Milestone `v0.1.0-alpha.1` — a usable, crypto-only private alpha built publicly on GitHub — is released: tagged `v0.1.0-alpha.1` on `main` after all fourteen branches of the [DESIGN.md](DESIGN.md) sequence merged. `v0.1.0-alpha.2` follows it as a correctness and safety release covering the two post-release branches. What the milestone still owes is recorded below.
 
 ## Current State
 
@@ -12,9 +12,9 @@ Milestone `v0.1.0-alpha.1` — a usable, crypto-only private alpha built publicl
 
 ## Next Action
 
-Cut `release/v0.1.0-alpha.2` from `main`. Two branches have merged since the `v0.1.0-alpha.1` tag and neither is covered by its release notes: `fix/alpha-security-blockers` (PR #14, the four security fixes) and `feat/asset-resolution` (PR #15, mention rules `2` and the run briefing). The alpha.1 known limitation "seed asset vocabulary — marketConfirmation and investability therefore score zero on most real narratives today" is now false and must be rewritten, not carried forward.
+`v0.1.0-alpha.2` is cut and tagged; the known-asset-vocabulary extension owed since alpha.1 is done. [RELEASE-NOTES.md](RELEASE-NOTES.md) is now a multi-release record, newest first, and alpha.1's superseded "seed asset vocabulary" limitation is called out as no longer applying rather than carried forward.
 
-The known-asset-vocabulary extension owed since the release is done (`feat/asset-resolution`). What remains from the milestone loop: the multi-day live soak (at least three scans across seven days against a committed store, grouping and observing each run until a narrative's cold-start gate opens) is still not proven live, only offline with an injected clock.
+The multi-day live soak is still owed from the milestone loop (item 5): at least three scans across seven days against a committed store, grouping and observing each run until a narrative's cold-start gate opens. That is the one remaining item the alpha.1 milestone did not prove live, and it needs elapsed calendar time rather than more code. What remains from the milestone loop: the multi-day live soak (at least three scans across seven days against a committed store, grouping and observing each run until a narrative's cold-start gate opens) is still not proven live, only offline with an injected clock.
 
 Two follow-ups were scoped but deliberately not started on this branch, since each changes locked or approved contracts and needs its own approved PR under `AGENTS.md`'s ground rules:
 

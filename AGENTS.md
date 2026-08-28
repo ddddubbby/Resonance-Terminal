@@ -4,7 +4,7 @@ This file is the single canonical instruction guide for every coding agent (Code
 
 ## Project
 
-Resonance Terminal is a crypto-only narrative intelligence terminal at private alpha `v0.1.0-alpha.1`, built publicly on GitHub. The milestone loop, non-goals, and branch sequence are recorded in `docs/DESIGN.md`; the release status is in `docs/RELEASE-NOTES.md`.
+Resonance Terminal is a crypto-only narrative intelligence terminal at private alpha `v0.1.0-alpha.2`, built publicly on GitHub. The milestone loop, non-goals, and branch sequence are recorded in `docs/DESIGN.md`; the release status is in `docs/RELEASE-NOTES.md`.
 
 ## Authority order
 
