@@ -166,7 +166,11 @@ describe("normalizeCaptures", () => {
     ];
     const docs = normalizeCaptures(captures);
     const kinds = docs.map((doc) => doc.kind).sort();
-    expect(kinds).toEqual(["market", "market", "market", "news", "release", "tvl"]);
+    // The `mover` document is the screened view of an asset already present as
+    // a `market` row. It survives deduplication only because normalization
+    // gives it a distinct url; before that fix every mover was dropped and the
+    // alpha-signals sheet rendered empty on every run.
+    expect(kinds).toEqual(["market", "market", "market", "mover", "news", "release", "tvl"]);
 
     const btc = docs.find((doc) => doc.asset === "BTC" && doc.sourceId === "binance-spot");
     expect(btc?.title).toContain("BTC/USDT 24h +0.5%");

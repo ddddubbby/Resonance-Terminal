@@ -175,7 +175,12 @@ function binanceDocuments(capture: RawCapture, capturedAt: string): SourceDocume
         {
           sourceId: capture.connectorId,
           kind: "mover",
-          url: `https://www.binance.com/en/trade/${move.asset}_USDT`,
+          // The `#mover` fragment is load-bearing, not cosmetic: deduplication
+          // is first-write-wins on (sourceId, url), and the market document for
+          // the same asset is written first from the same tape. Without a
+          // distinct url every screened mover was silently dropped, which is
+          // why the alpha-signals sheet rendered empty on every run.
+          url: `https://www.binance.com/en/trade/${move.asset}_USDT#mover`,
           title: `Mover ${move.asset}/USDT ${move.changePercent >= 0 ? "+" : ""}${move.changePercent}%`,
           text: [
             `${move.asset} binance spot mover off radar`,

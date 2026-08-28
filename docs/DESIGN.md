@@ -34,6 +34,7 @@ A usable, crypto-only private alpha built publicly on GitHub that proves the com
 | 5 | `feat/agent-install-and-handoff` | One-command installation and Codex/Claude handoff |
 | 6 | `test/private-alpha-e2e` | Complete workflow integration and live smoke |
 | 7 | `release/v0.1.0-alpha.1` | Soak results, status, version, tag |
+| 8 | `feat/asset-resolution` | Fix mention resolution (versioned change owed since the release's known limitations) and add the run briefing |
 
 Branches in the same numbered wave may run in parallel. Later waves must not begin against speculative contracts.
 
@@ -83,7 +84,7 @@ Recorded with the reworked `feat/partial-scoring`, under the approved scoring di
 - **The time series is an append-only ledger** at `<storeDir>/observations.json` (own schema `0.1`), one observation per narrative per manual scan — a derived artifact outside the locked snapshot schema, like clustering.
 - **Grouping records are run-local derived views** at `<runDir>/grouping.json` (own schema `0.1`): agent-produced event groups with written rationale and a model/rules stamp, one-event membership per document. The narrative ledger lives at `<storeDir>/narratives.json` (own schema `0.1`); identity allocation is deterministic and library-side, matching a group to an existing narrative is agent-side interpretation.
 - **Metric formulas are deterministic and monotone, versioned with the library.** Recalibrating any formula is a score-rule change requiring an approved PR.
-- **Connectors stay source-neutral and never fill `asset`.** The scan stage resolves mentions with the library's `resolveMentions` (rules version `1`, a deliberately small seed vocabulary). Extending the vocabulary is a versioned change.
+- **Connectors stay source-neutral and never fill `asset`.** The scan stage resolves mentions with the library's `resolveMentions`. Rules version `1`'s deliberately small seed vocabulary was extended to rules version `2` as the versioned change flagged here and in the release's known limitations — see "Asset resolution and the run briefing" below.
 
 ## CLI workflow decisions
 
@@ -95,6 +96,59 @@ Recorded with `feat/cli-scan-workflow`. Implementation policy; it does not redef
 - **Normalization rebuilds the spike's rules on the locked identity.** Document identity is the locked content hash, deduplication the locked rules; structured numbers stay in the text. Mover screening is exported separately (`screenMovers`) as the `movers` input for scoring.
 - **Candidates read what exists, honestly.** `candidates` requires a grouping record for the run; without one it says so. Identity allocation is rederived deterministically (`withAllocatedNarrativeIds`) so on-disk records predating allocation still resolve.
 - **Promotion is an operator decision, not a score threshold.** `<storeDir>/promotions.json` (own schema `0.1`) is append-only, one promotion per narrative, validated against the narrative ledger.
+
+## Asset resolution and the run briefing
+
+Recorded with `feat/asset-resolution`, the versioned vocabulary change the
+release's known limitations already owed. Implementation policy under the
+scoring stage decisions above; it does not redefine the six components or
+their weights.
+
+Measured on the unchanged `2026-08-28T13-48-29` live snapshot: every one of
+28 grouped narratives scored `0.000` or `none` before this branch, and none
+could have scored otherwise. Three stacked defects in mention resolution
+guaranteed it:
+
+- The vocabulary (`KNOWN_ASSETS_V1`) was nine hardcoded strings against a
+  932-symbol tradeable universe captured the same run.
+- Matching was raw substring, so `"Ethena"` matched `eth` — the ENA-buyback
+  narrative resolved to `eth`, not `ENA`.
+- `marketConfirmation` and `investability` compared lowercase resolved names
+  against uppercase exchange tickers, so the only two ungated components —
+  the only two that can score on a first run — could not be non-zero.
+
+**Resolution now derives its vocabulary from the snapshot** (rules version
+`2`, `packages/lib/src/assets.ts`) instead of a literal: `market` documents
+supply the tradeable universe, `tvl` documents supply protocol-name aliases
+(DefiLlama's `Ethena USDe` row yields the `ethena → ENA` alias). The
+canonical key is the uppercase ticker everywhere. Matching is word-boundary
+and longest-alias-wins over tokenized text; an explicit deny list (venue
+names, English-word tickers) was built by measuring which aliases
+mis-resolved real documents in the corpus above, not by guesswork. Against
+the same unchanged snapshot: 18 of 28 narratives now score; the ENA
+narrative goes `0.000` → `0.667`.
+
+Separately, `mover` documents were being deduplicated away by the `market`
+row for the same asset — both carried the same URL, and deduplication is
+first-write-wins on `(sourceId, url)`. This is why
+`evidence/reference-alpha-signals.md` rendered empty on every run. Mover
+documents now carry a distinct URL.
+
+**The run briefing is a new protocol step** (`docs/PROTOCOL.md` step 6,
+`resonance brief`): off-radar movers (screened movers no narrative mentions)
+ranked by magnitude, then confirmed narratives (resolved assets among the
+movers) ranked by score, then a plain statement of what the run could not
+measure. `AGENTS.md` requires the agent to present it after every scan — a
+scan that writes artifacts and reports only that files exist has not
+completed. `candidates` now shows its top 10 by default (`--all`,
+`--components` restore full detail); it previously printed all 28
+narratives with all seven component lines each, which read as noise
+however good the ranking was.
+
+Known ambiguity accepted for now: `optimism` resolves to `OP` even though
+the word appears in ordinary market commentary; kept because the chain
+reading dominates in a crypto corpus. If a later run shows false positives
+from it, it joins the deny list.
 
 ## Publication policy
 

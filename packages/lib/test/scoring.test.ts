@@ -248,12 +248,26 @@ describe("mention resolution", () => {
   }
 
   it("resolves mentions from titles of textual documents only", () => {
+    // A market document with an asset is what puts SOL in the tradeable
+    // universe; without one the index has nothing to resolve against.
+    const universe = makeDocument(
+      {
+        sourceId: "binance-spot",
+        kind: "market",
+        url: "https://example.invalid/market/SOL",
+        title: "Binance SOL/USDT 24h +1%",
+        text: "",
+      },
+      "2026-08-27T00:00:00.000Z",
+      { asset: "SOL" },
+    );
     const resolved = resolveMentions([
       textualDoc("Solana network upgrade ships"),
       textualDoc("Generic governance vote passes"),
       textualDoc("SOL pairs rally", "market"),
+      universe,
     ]);
-    expect(resolved[0]?.asset).toBe("solana");
+    expect(resolved[0]?.asset).toBe("SOL");
     expect(resolved[1]?.asset).toBeUndefined();
     expect(resolved[2]?.asset).toBeUndefined();
   });
@@ -315,7 +329,7 @@ describe("buildNarrativeObservation", () => {
     });
     expect(observation.documents).toBe(3);
     expect(observation.sources).toBe(2);
-    expect(observation.assetsMentioned).toEqual(["solana"]);
+    expect(observation.assetsMentioned).toEqual(["SOL"]);
     expect(observation.marketAssets).toEqual(["BTC", "SOL"]);
     expect(observation.movers).toEqual([{ asset: "sol", changePercent: 15 }]);
     expect(observation.corpusDocuments).toBe(3);

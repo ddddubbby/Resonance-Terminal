@@ -60,7 +60,10 @@ pnpm verify
 
 ```text
 resonance scan [--store DIR] [--json]          Fetch, normalize, snapshot, cluster
-resonance candidates [--store DIR] [--run ID] [--json]
+resonance brief [--store DIR] [--run ID] [--json]
+                                               Off-radar movers and confirmed
+                                               narratives — the run's output
+resonance candidates [--store DIR] [--run ID] [--all] [--components] [--json]
                                                Scored narratives of a grouped run
 resonance status [--store DIR] [--json]        Store summary
 resonance promote --narrative ID [--note TEXT] [--run ID] [--store DIR]
@@ -69,7 +72,9 @@ resonance handoff [--store DIR] [--json]       Agent-to-agent handoff document
 resonance --help / --version
 ```
 
-The store defaults to `.resonance`. Scans write immutable snapshots plus run-local artifacts. Grouping and narrative matching are agent-side interpretation steps — see [docs/PROTOCOL.md](docs/PROTOCOL.md) for the five-step scan protocol, and `resonance handoff` for passing the workspace between Codex and Claude without losing state.
+The store defaults to `.resonance`. Scans write immutable snapshots plus run-local artifacts. Grouping and narrative matching are agent-side interpretation steps — see [docs/PROTOCOL.md](docs/PROTOCOL.md) for the six-step scan protocol, and `resonance handoff` for passing the workspace between Codex and Claude without losing state.
+
+`resonance brief` is the output of a run: off-radar movers (assets that moved hard while no narrative mentions them) followed by confirmed narratives (news and price agreeing), then a plain statement of what the run could not measure. Agents are required to present it after every scan — the store is not the deliverable.
 
 ## Agents
 

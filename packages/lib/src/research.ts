@@ -86,7 +86,9 @@ export function alphaSignalsSheet(snapshot: Snapshot): string {
   return kindSheet(
     snapshot,
     "alpha signals",
-    "Off-radar movers, positioning, and stablecoin supply documents, when captured.",
+    "Off-radar movers, positioning, and stablecoin supply documents. Movers are " +
+      "screened from the exchange tape; the briefing (`resonance brief`) reports " +
+      "which of them no narrative covers.",
     ["mover", "positioning", "positioning-spot", "stablecoin"],
   );
 }
