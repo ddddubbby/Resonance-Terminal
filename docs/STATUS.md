@@ -101,11 +101,19 @@ The `feat/cli-scan-workflow` branch (PR #10) delivered stage 4C — the terminal
 - CLI commands `scan`/`candidates`/`status`/`promote` with `--store` and `--json`; `candidates` rederives allocated narrative identities deterministically and reports honest availability. Grouping stays agent-side per the protocol; the CLI never writes grouping records or observations.
 - Build change: the packed CLI is esbuild-bundled into a single `dist/index.js` (with shebang) because the tarball smoke check runs from an isolated temp directory; tsc still gates the build.
 
+## Current state: installation and agent handoff
+
+The `feat/agent-install-and-handoff` branch (PR #11) delivered stage 5, closing milestone loop items 1 and 8:
+
+- `scripts/install.sh`: an idempotent one-command installer — Node 22 and pnpm 10 checks (corepack fallback), exact dependencies (`--frozen-lockfile`), and the full `pnpm verify` gate. No API keys are required anywhere; installation through a coding agent runs the same script.
+- `resonance handoff [--store DIR] [--json]`: the deterministic agent-to-agent handoff document — the canonical docs to read first, the store summary (runs, narratives, observations, promotions, latest-run completeness), the narrative table with honest scores, and the protocol reminders. It writes nothing; the receiving agent reads AGENTS.md, then the handoff text, then continues.
+- `docs/PROTOCOL.md` records the handoff protocol: the handoff document is a rendering of store state, never edited by hand, with disagreements resolved in the store's favor. README carries the truthful installation and command reference.
+
 ## What does not exist yet
 
-- All five fixed connector families, the clustering stage, narrative-level scoring, the research workflow, and the CLI scan workflow are merged; no installer/handoff, no end-to-end alpha test, no release yet.
+- All five fixed connector families, the clustering stage, narrative-level scoring, the research workflow, the CLI scan workflow, and installation/agent handoff are merged; no end-to-end alpha test, no release yet.
 - No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
 
 ## Milestone progress
 
-`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, the research workflow, and the CLI scan workflow are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+`v0.1.0-alpha.1` — in progress: bootstrap, the live-data spike, the locked contracts, canonical snapshot storage, all five fixed connector families, the clustering stage, the narrative-granularity direction, narrative-level partial scoring, the research workflow, the CLI scan workflow, and installation/agent handoff are merged; no repeated scans yet. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
