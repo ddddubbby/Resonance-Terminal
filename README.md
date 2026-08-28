@@ -1,6 +1,6 @@
 # Resonance Terminal
 
-Crypto-only narrative intelligence terminal. Currently a **private alpha** under public construction toward the `v0.1.0-alpha.1` milestone.
+Crypto-only narrative intelligence terminal. **Private alpha `v0.1.0-alpha.1`** — see [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md) for what the alpha can and cannot do.
 
 The milestone proves one complete loop:
 

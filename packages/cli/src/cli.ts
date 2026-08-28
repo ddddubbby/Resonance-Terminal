@@ -31,7 +31,7 @@ import {
 } from "@resonance/lib";
 
 /** CLI version. Keep in sync with packages/cli/package.json. */
-export const VERSION = "0.0.0";
+export const VERSION = "0.1.0-alpha.1";
 
 /** Default store directory, relative to the working directory. */
 export const DEFAULT_STORE = ".resonance";
