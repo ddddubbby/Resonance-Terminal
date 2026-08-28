@@ -107,3 +107,20 @@ Lexical hints, narrative allocation, observations, scores, and packs are
 bit-stable for fixed inputs. Grouping and matching are versioned
 interpretations: reproducible by record (same input, same rules, written
 rationale), not bit-stable.
+
+## Handoff between agents
+
+The workspace passes between coding agents (Codex and Claude) without
+losing state. The transfer is one deterministic artifact:
+
+- `resonance handoff [--store DIR]` renders the handoff document: the
+  canonical docs to read first (AGENTS.md, this protocol, docs/HANDOFF.md),
+  the store state (runs, narratives, observations, promotions, latest-run
+  completeness), the narrative table with honest scores, and the protocol
+  reminders. `--json` emits the same state as data.
+- The receiving agent reads AGENTS.md, then the handoff text, then
+  continues. No conversation history, memory export, or ad hoc summary is
+  required — the store and the docs carry the truth.
+- The handoff document is a rendering of store state: it is never edited
+  by hand, and disagreements between it and the store are resolved in the
+  store's favor.

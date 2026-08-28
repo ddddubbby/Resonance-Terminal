@@ -82,6 +82,7 @@ describe("help and version", () => {
     expect(await run(["--help"])).toBe(0);
     expect(output(stdout)).toContain("Usage:");
     expect(output(stdout)).toContain("resonance scan");
+    expect(output(stdout)).toContain("resonance handoff");
   });
 
   it("prints help and exits 0 when called without arguments", async () => {
@@ -247,5 +248,48 @@ describe("candidates", () => {
     expect(await run(["candidates", "--store", store, "--json"])).toBe(0);
     const parsed = JSON.parse(output(jsonCapture.stdout)) as { candidates: unknown[] };
     expect(parsed.candidates.length).toBe(1);
+  });
+});
+
+describe("handoff", () => {
+  it("renders an empty store honestly", async () => {
+    const { stdout } = captureOutput();
+    expect(await run(["handoff", "--store", freshStore()])).toBe(0);
+    const text = output(stdout);
+    expect(text).toContain("agent handoff");
+    expect(text).toContain("latest run: none");
+    expect(text).toContain("AGENTS.md");
+  });
+
+  it("carries narrative state and protocol reminders for a seeded store", async () => {
+    const store = freshStore();
+    const record = groupingRecord("run-1");
+    writeGrouping(join(store, "run-1"), record);
+    applyGrouping(store, record);
+    writeSnapshot(store, {
+      schemaVersion: "0.1",
+      runId: "run-1",
+      createdAt: "2026-08-27T12:00:00.000Z",
+      connectors: [],
+      documents: [],
+    });
+    const { stdout } = captureOutput();
+    expect(await run(["handoff", "--store", store])).toBe(0);
+    const text = output(stdout);
+    expect(text).toContain("latest run: run-1 (grouping: yes");
+    expect(text).toContain("n0001");
+    expect(text).toContain("no score yet");
+    expect(text).toContain("never fabricated");
+  });
+
+  it("emits the handoff state as JSON with --json", async () => {
+    const store = freshStore();
+    applyGrouping(store, groupingRecord("run-1"));
+    const { stdout } = captureOutput();
+    expect(await run(["handoff", "--store", store, "--json"])).toBe(0);
+    const parsed = JSON.parse(output(stdout)) as Record<string, unknown>;
+    expect(parsed.narratives).toBe(1);
+    expect(parsed.runs).toBe(0);
+    expect(parsed.latestRun).toBeNull();
   });
 });

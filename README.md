@@ -22,13 +22,19 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the approved direction and branch seque
 ```
 packages/lib  Shared contracts and core logic (@resonance/lib)
 packages/cli  The `resonance` command line interface (@resonance/terminal)
-docs/         Canonical documentation (DESIGN, STATUS, HANDOFF)
+docs/         Canonical documentation (DESIGN, STATUS, HANDOFF, PROTOCOL)
+scripts/      Installer and build tooling
 ```
 
-## Requirements
+## Installation
 
-- Node 22 (pinned in [`.nvmrc`](.nvmrc))
-- pnpm 10 (pinned via `packageManager` in [`package.json`](package.json))
+One command, no API keys:
+
+```bash
+./scripts/install.sh
+```
+
+The installer checks Node 22 and pnpm 10, installs exact dependencies (`--frozen-lockfile`), and gates the result with `pnpm verify` — the same check CI runs. It is idempotent: safe to re-run after pulling new commits. Installation through a coding agent (Codex or Claude Code) works the same way: point the agent at this repository and ask it to run the installer.
 
 ## Development
 
@@ -50,16 +56,20 @@ pnpm verify
 | `pnpm build` | Build all packages into `dist/` |
 | `pnpm test` | Run the Vitest suite |
 
-## Current CLI state
-
-The CLI is a placeholder:
+## The CLI
 
 ```text
-resonance --help      Show help (also the default with no arguments)
-resonance --version   Show the CLI version
+resonance scan [--store DIR] [--json]          Fetch, normalize, snapshot, cluster
+resonance candidates [--store DIR] [--run ID] [--json]
+                                               Scored narratives of a grouped run
+resonance status [--store DIR] [--json]        Store summary
+resonance promote --narrative ID [--note TEXT] [--run ID] [--store DIR]
+                                               Promote a narrative to the shortlist
+resonance handoff [--store DIR] [--json]       Agent-to-agent handoff document
+resonance --help / --version
 ```
 
-Real commands (`init`, `scan`, `candidates`, `promote`, `narrative`, `investigate`, `status`, `handoff`, `verify`) arrive in later milestone branches.
+The store defaults to `.resonance`. Scans write immutable snapshots plus run-local artifacts. Grouping and narrative matching are agent-side interpretation steps — see [docs/PROTOCOL.md](docs/PROTOCOL.md) for the five-step scan protocol, and `resonance handoff` for passing the workspace between Codex and Claude without losing state.
 
 ## Agents
 
