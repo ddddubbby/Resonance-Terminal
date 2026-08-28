@@ -198,6 +198,104 @@ describe("promote", () => {
   });
 });
 
+describe("brief", () => {
+  it("reports no runs before the first scan", async () => {
+    const store = freshStore();
+    const { stderr } = captureOutput();
+    expect(await run(["brief", "--store", store])).toBe(1);
+    expect(output(stderr)).toContain("run 'resonance scan' first");
+  });
+
+  it("says the run needs grouping before a briefing exists", async () => {
+    const store = freshStore();
+    writeSnapshot(store, {
+      schemaVersion: "0.1",
+      runId: "run-1",
+      createdAt: "2026-08-27T12:00:00.000Z",
+      connectors: [],
+      documents: [],
+    });
+    const { stdout } = captureOutput();
+    expect(await run(["brief", "--store", store])).toBe(0);
+    expect(output(stdout)).toContain("group the run first");
+  });
+
+  it("leads with off-radar movers and names the confirming move", async () => {
+    const store = freshStore();
+    const record = groupingRecord("run-1");
+    writeGrouping(join(store, "run-1"), record);
+    applyGrouping(store, record);
+    const news = makeDocument(
+      {
+        sourceId: "rss-coindesk",
+        kind: "news",
+        url: "https://example.com/ena",
+        title: "Ethena proposes revenue-funded buybacks",
+        text: "The Ethena foundation proposes routing revenue into buybacks.",
+      },
+      "2026-08-27T12:00:00.000Z",
+    );
+    const market = makeDocument(
+      {
+        sourceId: "binance-spot",
+        kind: "market",
+        url: "https://www.binance.com/en/trade/ENA_USDT",
+        title: "Binance ENA/USDT 24h +12%",
+        text: "ENA binance spot ticker",
+      },
+      "2026-08-27T12:00:00.000Z",
+      { asset: "ENA" },
+    );
+    // The `Ethena` alias is derived from the TVL row, not declared: DefiLlama
+    // carries `Ethena USDe -> ENA`. Without a TVL document the prose says
+    // "Ethena" and nothing resolves, which is the correct behaviour.
+    const tvl = makeDocument(
+      {
+        sourceId: "defillama-protocols",
+        kind: "tvl",
+        url: "https://defillama.com/protocol/ethena",
+        title: "TVL Ethena USDe $4.06B (Basis Trading)",
+        text: "Ethena USDe ENA protocol tvl defillama",
+      },
+      "2026-08-27T12:00:00.000Z",
+      { asset: "ENA" },
+    );
+    writeSnapshot(store, {
+      schemaVersion: "0.1",
+      runId: "run-1",
+      createdAt: "2026-08-27T12:00:00.000Z",
+      connectors: [],
+      documents: [news, market, tvl],
+    });
+    addObservation(
+      store,
+      buildNarrativeObservation({
+        runId: "run-1",
+        scannedAt: "2026-08-27T12:30:00.000Z",
+        narrativeId: "n0001",
+        narrativeDocuments: [news],
+        corpus: [news, market, tvl],
+        movers: [
+          { asset: "HEMI", changePercent: 36.67 },
+          { asset: "ENA", changePercent: 12.08 },
+        ],
+      }),
+    );
+    const { stdout } = captureOutput();
+    expect(await run(["brief", "--store", store])).toBe(0);
+    const text = output(stdout);
+    expect(text.indexOf("OFF-RADAR MOVERS")).toBeLessThan(text.indexOf("CONFIRMED NARRATIVES"));
+    // HEMI moved and nothing covers it; ENA moved and the narrative names it.
+    expect(text).toContain("HEMI");
+    expect(text).toContain("ENA +12.08%");
+    vi.restoreAllMocks();
+    const jsonCapture = captureOutput();
+    expect(await run(["brief", "--store", store, "--json"])).toBe(0);
+    const parsed = JSON.parse(output(jsonCapture.stdout)) as { uncovered: unknown[] };
+    expect(parsed.uncovered.length).toBe(1);
+  });
+});
+
 describe("candidates", () => {
   it("says so honestly when the latest run has no grouping", async () => {
     const store = freshStore();
@@ -242,7 +340,14 @@ describe("candidates", () => {
     expect(await run(["candidates", "--store", store])).toBe(0);
     const text = output(stdout);
     expect(text).toContain("n0001");
-    expect(text).toContain("unavailable");
+    // Component detail is opt-in: printing every component for every
+    // narrative buried the ranking under mostly-null lines.
+    expect(text).not.toContain("unavailable");
+    expect(text).toContain("--components");
+    vi.restoreAllMocks();
+    const detail = captureOutput();
+    expect(await run(["candidates", "--store", store, "--components"])).toBe(0);
+    expect(output(detail.stdout)).toContain("unavailable");
     vi.restoreAllMocks();
     const jsonCapture = captureOutput();
     expect(await run(["candidates", "--store", store, "--json"])).toBe(0);

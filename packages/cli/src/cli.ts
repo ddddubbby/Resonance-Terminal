@@ -10,6 +10,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
+  type Briefing,
+  buildBriefing,
   EXIT_DEGRADED,
   EXIT_ERROR,
   EXIT_OK,
@@ -22,6 +24,7 @@ import {
   readNarratives,
   readObservations,
   readPromotions,
+  renderBriefing,
   runDirOf,
   runScan,
   type ScanOptions,
@@ -44,7 +47,10 @@ Usage:
   resonance --help                       Show this help
   resonance --version                    Show the CLI version
   resonance scan [--store DIR] [--json]  Fetch, normalize, snapshot, cluster
-  resonance candidates [--store DIR] [--run ID] [--json]
+  resonance brief [--store DIR] [--run ID] [--json]
+                                         Off-radar movers and confirmed
+                                         narratives of a grouped run
+  resonance candidates [--store DIR] [--run ID] [--all] [--components] [--json]
                                          Scored narratives of a grouped run
   resonance status [--store DIR] [--json]
                                          Store summary: runs, narratives, scores
@@ -62,17 +68,25 @@ run-local artifacts; grouping is agent-side (see docs/PROTOCOL.md).
 interface Flags {
   store: string;
   json: boolean;
+  /** Show every candidate rather than the top of the ranking. */
+  all: boolean;
+  /** Show per-component detail under each candidate. */
+  components: boolean;
   run?: string;
   narrative?: string;
   note?: string;
 }
 
 function parseFlags(args: readonly string[]): Flags | string {
-  const flags: Flags = { store: DEFAULT_STORE, json: false };
+  const flags: Flags = { store: DEFAULT_STORE, json: false, all: false, components: false };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--json") {
       flags.json = true;
+    } else if (arg === "--all") {
+      flags.all = true;
+    } else if (arg === "--components") {
+      flags.components = true;
     } else if (arg === "--store") {
       const value = args[++i];
       if (value === undefined) {
@@ -138,12 +152,62 @@ async function scanCommand(flags: Flags, deps: ScanCommandDeps): Promise<ExitCod
           );
         }
       }
+      // A scan cannot brief on its own: movers are screened here, but
+      // "uncovered" needs the grouping that comes after. Say what remains
+      // rather than stopping silently on a directory of files.
+      out("");
+      out("Next: group the corpus (docs/PROTOCOL.md step 1), then");
+      out(`  resonance brief --run ${summary.runId}`);
     }
     return summary.degraded ? EXIT_DEGRADED : EXIT_OK;
   } catch (error) {
     err(`scan failed: ${error instanceof Error ? error.message : String(error)}`);
     return EXIT_ERROR;
   }
+}
+
+// ---------------------------------------------------------------------------
+// brief
+// ---------------------------------------------------------------------------
+
+/**
+ * The user-facing output of a run: off-radar movers first, then narratives
+ * where news and price agree. Everything else a scan writes is for the agent
+ * or for the record.
+ */
+function briefData(storeDir: string, runId: string): Briefing | string {
+  const observations = readObservations(storeDir).filter((o) => o.runId === runId);
+  if (observations.length === 0) {
+    return `run ${runId} has no observations; group the run first (docs/PROTOCOL.md)`;
+  }
+  return buildBriefing({
+    runId,
+    narratives: readNarratives(storeDir),
+    observations,
+    scores: scoreAll(readObservations(storeDir)),
+  });
+}
+
+function briefCommand(flags: Flags): ExitCode {
+  const runs = listRuns(flags.store);
+  const runId = flags.run ?? runs[runs.length - 1];
+  if (runId === undefined) {
+    err(`no runs found in store ${flags.store}; run 'resonance scan' first`);
+    return EXIT_ERROR;
+  }
+  let data: Briefing | string;
+  try {
+    data = briefData(flags.store, runId);
+  } catch {
+    err(`invalid run id "${runId}"; run ids are the slugs listed by 'resonance status'`);
+    return EXIT_ERROR;
+  }
+  if (typeof data === "string") {
+    out(data);
+    return EXIT_OK;
+  }
+  out(flags.json ? JSON.stringify(data, null, 2) : renderBriefing(data));
+  return EXIT_OK;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,23 +262,39 @@ function candidatesData(storeDir: string, runId: string): CandidateRow[] | strin
   return rows;
 }
 
-function renderCandidates(runId: string, rows: CandidateRow[]): string {
+/** Candidates shown by default; the rest are one `--all` away. */
+const CANDIDATE_LIMIT = 10;
+
+function renderCandidates(runId: string, rows: CandidateRow[], flags: Flags): string {
   if (rows.length === 0) {
     return `run ${runId}: no grouped narratives with observations yet`;
   }
+  // Rows arrive ranked. Printing all of them with every component expanded
+  // was ~200 lines of mostly-null detail, which reads as noise however good
+  // the ranking is.
+  const shown = flags.all ? rows : rows.slice(0, CANDIDATE_LIMIT);
   const lines = [`candidates — run ${runId}`, ""];
-  for (const row of rows) {
+  for (const row of shown) {
     const score =
       row.score === null
         ? "no score"
         : `${row.score.toFixed(3)} (coverage ${row.coverage.toFixed(2)}${row.full ? ", full" : ""})`;
     lines.push(`${row.narrativeId} ${row.promoted ? "[promoted] " : ""}${row.title} — ${score}`);
+    if (!flags.components) {
+      continue;
+    }
     for (const component of row.components) {
       const value = component.available
         ? `${component.score?.toFixed(2) ?? "?"} (w=${component.weight.toFixed(2)})`
         : `unavailable: ${component.reason ?? "?"}`;
       lines.push(`  - ${component.component}: ${value}`);
     }
+  }
+  const hidden = rows.length - shown.length;
+  if (hidden > 0) {
+    lines.push("", `${hidden} more — rerun with --all (add --components for detail)`);
+  } else if (!flags.components) {
+    lines.push("", "add --components for per-component detail");
   }
   return lines.join("\n");
 }
@@ -240,7 +320,7 @@ function candidatesCommand(flags: Flags): ExitCode {
   if (flags.json) {
     out(JSON.stringify({ runId, candidates: data }, null, 2));
   } else {
-    out(renderCandidates(runId, data));
+    out(renderCandidates(runId, data, flags));
   }
   return EXIT_OK;
 }
@@ -437,6 +517,8 @@ export async function run(argv: readonly string[], deps: ScanCommandDeps = {}): 
   switch (command) {
     case "scan":
       return scanCommand(flags, deps);
+    case "brief":
+      return briefCommand(flags);
     case "candidates":
       return candidatesCommand(flags);
     case "status":

@@ -133,3 +133,29 @@ The `release/v0.1.0-alpha.1` branch (PR #13) cut the private alpha, tagged `v0.1
 ## Milestone progress
 
 `v0.1.0-alpha.1` — **released**: all fourteen branches of the sequence are merged and tagged `v0.1.0-alpha.1` on `main`. The milestone loop is proven except item 5's multi-day live soak, recorded honestly in [RELEASE-NOTES.md](RELEASE-NOTES.md). See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+
+## Current state: asset resolution and the run briefing
+
+The `feat/asset-resolution` branch fixed the reason scans produced no usable
+output, and added the surface a user actually reads:
+
+- Mention resolution (rules version `2`, `packages/lib/src/assets.ts`) derives
+  its vocabulary from the snapshot: `market` documents supply the tradeable
+  universe, `tvl` documents supply protocol-name aliases. Canonical key is the
+  uppercase ticker; matching is word-boundary and longest-alias-wins.
+- Before this, resolution ran against nine hardcoded strings with substring
+  matching and compared lowercase names to uppercase tickers, so
+  `marketConfirmation` and `investability` could not be non-zero. Against the
+  unchanged `2026-08-28T13-48-29` snapshot: 0 of 28 narratives scored before,
+  18 of 28 after; `n0003` (Ethena/ENA, ENA +12.08% that day) went `0.000` to
+  `0.667`.
+- `mover` documents were being deduplicated away by the `market` row for the
+  same asset (dedup is first-write-wins on `(sourceId, url)`, and both carried
+  the same url), which is why the alpha-signals sheet rendered empty on every
+  run. Movers now carry a distinct url.
+- `resonance brief` renders the run output: off-radar movers first, then
+  confirmed narratives ranked, then the run's limits. `docs/PROTOCOL.md` step 6
+  and `AGENTS.md` require the agent to present it after every scan.
+- `resonance candidates` shows the top 10 of the ranking by default;
+  `--all` and `--components` restore the full detail.
+- The local store `.resonance/` is gitignored, matching `spike/data/`.

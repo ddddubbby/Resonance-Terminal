@@ -288,6 +288,7 @@ export function sourceCountsOf(docs: readonly SourceDocument[]): Record<string, 
 }
 
 export * from "./assets.js";
+export * from "./briefing.js";
 export * from "./captures.js";
 export * from "./clustering.js";
 export * from "./connectors.js";
