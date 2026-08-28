@@ -125,14 +125,29 @@ The `release/v0.1.0-alpha.1` branch (PR #13) cut the private alpha, tagged `v0.1
 - Version `0.1.0-alpha.1` across the root package, `@resonance/lib`, `@resonance/terminal`, and the CLI `VERSION` constant; the packed smoke check reads the tarball name from the CLI package instead of hardcoding it.
 - `docs/RELEASE-NOTES.md` records the milestone loop exactly as proven: items 1–4 and 7–8 done; item 5 (three scans across seven days) recorded as not done live — two same-session live scans, with the mechanism proven offline by the integration suite's injected-clock three-scan run; item 6 proven offline and partial live. Known limitations stated: seed asset vocabulary, no scheduler, grouping as recorded interpretation.
 
-## What does not exist yet
+## Current state: alpha security blockers
 
-- The complete branch sequence is merged and released; what remains owed is the multi-day live soak (item 5) and, if marketConfirmation/investability stay structurally zero, a versioned extension of the known-asset vocabulary.
-- No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
+The `fix/alpha-security-blockers` branch (PR #14) closed four confirmed
+blockers without touching snapshot schema `0.1`, CLI commands, scoring, or
+source policy:
 
-## Milestone progress
-
-`v0.1.0-alpha.1` — **released**: all fourteen branches of the sequence are merged and tagged `v0.1.0-alpha.1` on `main`. The milestone loop is proven except item 5's multi-day live soak, recorded honestly in [RELEASE-NOTES.md](RELEASE-NOTES.md). See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.
+- `writeSnapshot` and `readSnapshot` recompute every document's SHA-256
+  identity from `sourceId|kind|url|title|text` and reject a forged or stale
+  `contentHash`/`docId` on both paths (`corrupted-snapshot`).
+- `runDirOf` validates the runId against the locked `RUN_ID_PATTERN` before
+  joining, so `candidates --run` with a traversal-shaped id exits 1 without
+  touching a path outside the store.
+- `payloads.ts` validates successful captures per fixed connector family
+  before persistence and normalization. A malformed HTTP-200 capture becomes
+  a recorded failure that keeps id/url/status/timestamp, drops the payload,
+  and is marked `invalid payload`; other connectors keep running and the scan
+  degrades (exit 2) while usable documents remain. Unknown connector ids pass
+  through untouched.
+- `HttpConnectorOptions` gains `maxResponseBytes` (`DEFAULT_MAX_RESPONSE_BYTES`
+  = 16 MiB): invalid limits reject before the request, `Content-Length` is
+  pre-checked when present, the decompressed stream is always enforced, and
+  JSON parses only after the bounded body is collected. Oversized or invalid
+  JSON responses are recorded failures preserving the HTTP status.
 
 ## Current state: asset resolution and the run briefing
 
@@ -159,3 +174,12 @@ output, and added the surface a user actually reads:
 - `resonance candidates` shows the top 10 of the ranking by default;
   `--all` and `--components` restore the full detail.
 - The local store `.resonance/` is gitignored, matching `spike/data/`.
+
+## What does not exist yet
+
+- The complete branch sequence is merged and released. The versioned extension of the known-asset vocabulary is done (mention rules `2`, see "asset resolution and the run briefing" above); what remains owed from the milestone is the multi-day live soak (item 5).
+- No database, scheduler, embeddings, MCP, trading, or browser UI — and none are planned for the private alpha.
+
+## Milestone progress
+
+`v0.1.0-alpha.1` — **released**: all fourteen branches of the sequence are merged and tagged `v0.1.0-alpha.1` on `main`. The milestone loop is proven except item 5's multi-day live soak, recorded honestly in [RELEASE-NOTES.md](RELEASE-NOTES.md). Two branches have merged since the tag and are unreleased: `fix/alpha-security-blockers` (PR #14) and `feat/asset-resolution` (PR #15); both are described above and neither is covered by the alpha.1 release notes. See [DESIGN.md](DESIGN.md) for the branch sequence and [HANDOFF.md](HANDOFF.md) for the current integration state.

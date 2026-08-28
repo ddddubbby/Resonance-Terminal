@@ -34,7 +34,10 @@ A usable, crypto-only private alpha built publicly on GitHub that proves the com
 | 5 | `feat/agent-install-and-handoff` | One-command installation and Codex/Claude handoff |
 | 6 | `test/private-alpha-e2e` | Complete workflow integration and live smoke |
 | 7 | `release/v0.1.0-alpha.1` | Soak results, status, version, tag |
-| 8 | `feat/asset-resolution` | Fix mention resolution (versioned change owed since the release's known limitations) and add the run briefing |
+| 8 | `fix/alpha-security-blockers` | Snapshot identity recompute, run-id traversal guard, payload validation, response budget |
+| 9 | `feat/asset-resolution` | Fix mention resolution (versioned change owed since the release's known limitations) and add the run briefing |
+
+Rows 8 onward are post-release branches against the merged milestone, not part of the approved `v0.1.0-alpha.1` sequence; they ship in `v0.1.0-alpha.2`.
 
 Branches in the same numbered wave may run in parallel. Later waves must not begin against speculative contracts.
 
