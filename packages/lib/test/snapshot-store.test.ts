@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -131,6 +131,55 @@ describe("snapshot store validation", () => {
     const future: unknown = { ...snapshot("versioned"), schemaVersion: "0.2" };
     writeFileSync(path, JSON.stringify(future), "utf8");
     expectStoreError(() => readSnapshot(store, "versioned"), "unsupported-schema");
+  });
+
+  it("rejects forged content identity on write", () => {
+    const store = freshStore();
+    // Self-consistent forged identity (docId derives from the forged hash)
+    // passes the shape guard and must be caught by content recomputation.
+    const forgedHash = "0".repeat(64);
+    const forged = {
+      ...doc("https://example.invalid/a", "alpha"),
+      contentHash: forgedHash,
+      docId: forgedHash.slice(0, 12),
+    };
+    expectStoreError(
+      () => writeSnapshot(store, snapshot("forged", [forged])),
+      "corrupted-snapshot",
+    );
+    // Schema-inconsistent forgery is rejected at the shape guard.
+    const shapeForged = {
+      ...doc("https://example.invalid/b", "beta"),
+      contentHash: "f".repeat(64),
+    };
+    expectStoreError(
+      () => writeSnapshot(store, snapshot("shape-forged", [shapeForged])),
+      "invalid-snapshot",
+    );
+    const staleDocId = {
+      ...doc("https://example.invalid/c", "gamma"),
+      docId: "ffffffffffff",
+    };
+    expectStoreError(
+      () => writeSnapshot(store, snapshot("stale-id", [staleDocId])),
+      "invalid-snapshot",
+    );
+  });
+
+  it("rejects post-write content tampering on read", () => {
+    const store = freshStore();
+    writeSnapshot(store, snapshot("tampered"));
+    const path = join(store, "tampered", SNAPSHOT_FILE);
+    const onDisk = JSON.parse(readFileSync(path, "utf8")) as {
+      documents: { readonly text: string }[];
+    };
+    const firstDoc = onDisk.documents[0];
+    if (firstDoc === undefined) {
+      throw new Error("fixture snapshot has no documents");
+    }
+    onDisk.documents = [{ ...firstDoc, text: "tampered content" }];
+    writeFileSync(path, JSON.stringify(onDisk), "utf8");
+    expectStoreError(() => readSnapshot(store, "tampered"), "corrupted-snapshot");
   });
 });
 

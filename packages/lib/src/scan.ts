@@ -31,15 +31,19 @@ import {
 import type { ConnectorResult } from "./index.js";
 import { listSnapshots, SNAPSHOT_SCHEMA_VERSION, type Snapshot, writeSnapshot } from "./index.js";
 import { normalizeCaptures } from "./normalize.js";
+import { enforcePayloadValidity } from "./payloads.js";
 import { researchConnectors } from "./research-connectors.js";
+import { assertRunId } from "./snapshot-store.js";
 
 /**
  * The run directory of one scan inside a store. The snapshot store writes
  * snapshots to `<storeDir>/<runId>/snapshot.json`, so the run directory IS
  * the snapshot directory: raw captures, clustering, grouping, and evidence
- * for a run all live beside its snapshot.
+ * for a run all live beside its snapshot. The runId is validated against
+ * the traversal-safe pattern, so the resolved path never escapes the store.
  */
 export function runDirOf(storeDir: string, runId: string): string {
+  assertRunId(runId);
   return join(storeDir, runId);
 }
 
@@ -88,7 +92,9 @@ export async function runScan(storeDir: string, options: ScanOptions = {}): Prom
   const captures: RawCapture[] = [];
   const results: ConnectorResult[] = [];
   for (const connector of connectors) {
-    const capture = await connector.fetchCapture();
+    // Malformed HTTP-200 payloads become recorded failures before anything
+    // is persisted or normalized; valid captures pass through untouched.
+    const capture = enforcePayloadValidity(await connector.fetchCapture());
     writeCapture(runDir, capture);
     captures.push(capture);
     results.push(toConnectorResult(capture, connector.kind));

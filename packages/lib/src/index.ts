@@ -293,6 +293,7 @@ export * from "./connectors.js";
 export * from "./grouping.js";
 export * from "./narratives.js";
 export * from "./normalize.js";
+export * from "./payloads.js";
 export * from "./promotions.js";
 export * from "./research.js";
 export * from "./research-connectors.js";
