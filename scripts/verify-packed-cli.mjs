@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,7 +15,8 @@ execFileSync("pnpm", ["--filter", "@resonance/terminal", "pack", "--pack-destina
   stdio: "ignore",
 });
 
-const tarball = join(tempDir, "resonance-terminal-0.0.0.tgz");
+const cliPackage = JSON.parse(readFileSync("packages/cli/package.json", "utf8"));
+const tarball = join(tempDir, `resonance-terminal-${cliPackage.version}.tgz`);
 execFileSync("tar", ["-xzf", tarball, "-C", tempDir], { stdio: "ignore" });
 
 const packedEntry = join(tempDir, "package", "dist", "index.js");
